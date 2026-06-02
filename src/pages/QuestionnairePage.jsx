@@ -58,8 +58,7 @@ export default function QuestionnairePage() {
   const completionPercent = Math.round((answeredCount / 40) * 100);
   const isLastFactor = currentFactorIndex === FACTOR_CONFIG.length - 1;
 
-const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSaveProfile = async () => {
     setError('');
 
     if (!baseForm.name.trim() || !baseForm.age) {
@@ -149,7 +148,7 @@ const handleSubmit = async (event) => {
           </div>
         </SectionCard>
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="space-y-6">
         <SectionCard
           title="Базовый профиль"
           subtitle="Эти поля сохраняются вместе с психологической картой. Позже базовые данные можно поправить в профиле без повторного прохождения теста."
@@ -290,7 +289,8 @@ const handleSubmit = async (event) => {
 
               {isLastFactor ? (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSaveProfile}
                   disabled={saving}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -319,7 +319,7 @@ const handleSubmit = async (event) => {
               </div>
             ) : null}
           </SectionCard>
-        </form>
+        </div>
       </div>
     </div>
   );
