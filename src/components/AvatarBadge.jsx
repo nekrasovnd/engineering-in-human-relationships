@@ -1,0 +1,15 @@
+const sizeMap = {
+  sm: 'h-10 w-10 text-sm',
+  md: 'h-14 w-14 text-lg',
+  lg: 'h-20 w-20 text-2xl',
+};
+
+export default function AvatarBadge({ initials = 'HR', size = 'md' }) {
+  return (
+    <div
+      className={`flex ${sizeMap[size]} items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-sky-700 font-display font-bold text-white shadow-lg`}
+    >
+      {initials}
+    </div>
+  );
+}
