@@ -87,11 +87,11 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-aurora">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-8 px-4 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-6 lg:py-10">
-        <div className="rounded-[36px] border border-slate-800 bg-slate-950/65 p-6 shadow-glow backdrop-blur sm:p-8">
+        <div className="order-2 rounded-[36px] border border-slate-800 bg-slate-950/65 p-6 shadow-glow backdrop-blur sm:p-8 lg:order-1">
           <p className="text-sm uppercase tracking-[0.28em] text-blue-300/80">
             Engineering In Human Relationships
           </p>
-          <h1 className="mt-4 max-w-3xl font-display text-4xl leading-tight text-white sm:text-5xl">
+          <h1 className="mt-4 max-w-3xl font-display text-3xl leading-tight text-white sm:text-5xl">
             Психологический профайлер для команд, совместимости и конфликтов.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
@@ -99,7 +99,7 @@ export default function AuthPage() {
             совместимость, собирать команды и находить подходящих людей.
           </p>
 
-          <div className="mt-8 grid gap-4">
+          <div className="mt-8 hidden gap-4 sm:grid">
             {featureCards.map((card) => {
               const Icon = card.icon;
               return (
@@ -123,7 +123,7 @@ export default function AuthPage() {
             })}
           </div>
 
-          <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/75 p-5">
+          <div className="mt-8 hidden rounded-3xl border border-slate-800 bg-slate-900/75 p-5 sm:block">
             <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">
               Как начать
             </p>
@@ -135,8 +135,8 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <div className="flex items-center">
-          <div className="w-full rounded-[36px] border border-slate-800 bg-slate-950/70 p-6 shadow-glow backdrop-blur sm:p-8">
+        <div className="order-1 flex items-center lg:order-2">
+          <div className="w-full rounded-[36px] border border-slate-800 bg-slate-950/70 p-6 pb-24 shadow-glow backdrop-blur sm:p-8 sm:pb-16">
             <div className="flex rounded-full border border-slate-800 bg-slate-900 p-1">
               {[
                 { key: 'login', label: 'Вход' },
