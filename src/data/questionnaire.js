@@ -261,6 +261,10 @@ export const LIKERT_OPTIONS = [
 
 export const FACTOR_KEYS = FACTOR_CONFIG.map((factor) => factor.key);
 
+const DISPLAY_SCORE_TRANSFORMS = {
+  neuroticism: (score) => 10 - score,
+};
+
 export function getInitialAnswers() {
   return FACTOR_CONFIG.flatMap((factor) => factor.questions).reduce(
     (accumulator, question) => ({
@@ -269,6 +273,17 @@ export function getInitialAnswers() {
     }),
     {},
   );
+}
+
+export function getDisplayFactorScore(factorKey, score) {
+  if (typeof score !== 'number') {
+    return 0;
+  }
+
+  const transform = DISPLAY_SCORE_TRANSFORMS[factorKey];
+  const nextScore = transform ? transform(score) : score;
+
+  return Number(nextScore.toFixed(1));
 }
 
 export function buildPsychologicalVector50(answers, factorScores) {

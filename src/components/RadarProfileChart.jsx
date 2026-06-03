@@ -8,7 +8,10 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-import { FACTOR_CONFIG } from '../data/questionnaire';
+import {
+  FACTOR_CONFIG,
+  getDisplayFactorScore,
+} from '../data/questionnaire';
 
 ChartJS.register(
   RadialLinearScale,
@@ -25,7 +28,9 @@ export default function RadarProfileChart({ scores, compact = false }) {
     datasets: [
       {
         label: 'Психологическая карта',
-        data: FACTOR_CONFIG.map((factor) => scores?.[factor.key] ?? 0),
+        data: FACTOR_CONFIG.map((factor) =>
+          getDisplayFactorScore(factor.key, scores?.[factor.key] ?? 0),
+        ),
         backgroundColor: 'rgba(59, 130, 246, 0.25)',
         borderColor: 'rgba(96, 165, 250, 1)',
         borderWidth: 2,

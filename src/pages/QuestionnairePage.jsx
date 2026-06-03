@@ -409,6 +409,12 @@ export default function QuestionnairePage() {
             </div>
 
             <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3 text-sm leading-6 text-slate-300">
+                Внутри одного блока вопросы специально смотрят на качество с двух сторон.
+                Поэтому согласованный профиль часто выглядит не как все `5` или все `1`,
+                а как смесь прямых и обратных ответов.
+              </div>
+
               {currentFactor.questions.map((question, questionIndex) => (
                 <div
                   key={question.id}

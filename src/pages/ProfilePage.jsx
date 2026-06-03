@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PencilLine } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { FACTOR_CONFIG } from '../data/questionnaire';
+import {
+  FACTOR_CONFIG,
+  getDisplayFactorScore,
+} from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
 import { formatEgoStateLabel } from '../utils/egoState';
 import { getFactorTone } from '../utils/profileAnalysis';
@@ -237,10 +240,19 @@ export default function ProfilePage() {
                 {factor.shortLabel}
               </p>
               <p className="mt-2 font-display text-3xl text-white">
-                {profile.factorScores[factor.key]}
+                {getDisplayFactorScore(
+                  factor.key,
+                  profile.factorScores[factor.key],
+                )}
               </p>
               <p className="mt-1 text-sm text-blue-200">
-                {getFactorTone(profile.factorScores[factor.key])} уровень
+                {getFactorTone(
+                  getDisplayFactorScore(
+                    factor.key,
+                    profile.factorScores[factor.key],
+                  ),
+                )}{' '}
+                уровень
               </p>
               <p className="mt-3 text-sm leading-6 text-slate-400">
                 {factor.description}
