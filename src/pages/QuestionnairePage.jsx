@@ -60,9 +60,15 @@ export default function QuestionnairePage() {
 
   const handleSaveProfile = async () => {
     setError('');
+    const age = Number(baseForm.age);
 
     if (!baseForm.name.trim() || !baseForm.age) {
       setError('Укажите имя и возраст.');
+      return;
+    }
+
+    if (!Number.isInteger(age) || age < 16 || age > 90) {
+      setError('Возраст должен быть от 16 до 90 лет.');
       return;
     }
 
@@ -78,7 +84,7 @@ export default function QuestionnairePage() {
         userId: user.uid,
         email: user.email,
         name: baseForm.name.trim(),
-        age: Number(baseForm.age),
+        age,
         gender: baseForm.gender,
         avatarInitials: getInitials(baseForm.name),
         answers,
@@ -96,8 +102,10 @@ export default function QuestionnairePage() {
       });
 
       navigate('/profile');
-    } catch (requestError) {
-      setError('Не удалось сохранить профиль. Проверьте Firestore rules и конфигурацию Firebase.');
+    } catch {
+      setError(
+        'Не удалось сохранить профиль. Проверьте Firestore rules и конфигурацию Firebase.',
+      );
     } finally {
       setSaving(false);
     }
@@ -149,11 +157,11 @@ export default function QuestionnairePage() {
         </SectionCard>
 
         <div className="space-y-6">
-        <SectionCard
-          title="Базовый профиль"
-          subtitle="Эти поля сохраняются вместе с психологической картой. Позже базовые данные можно поправить в профиле без повторного прохождения теста."
-        >
-          <div className="grid gap-4 md:grid-cols-3">
+          <SectionCard
+            title="Базовый профиль"
+            subtitle="Эти поля сохраняются вместе с психологической картой. Позже базовые данные можно поправить в профиле без повторного прохождения теста."
+          >
+            <div className="grid gap-4 md:grid-cols-3">
               <label className="block">
                 <span className="mb-2 block text-sm text-slate-300">Имя</span>
                 <input
@@ -170,6 +178,7 @@ export default function QuestionnairePage() {
                   placeholder="Например, Анна Лебедева"
                 />
               </label>
+
               <label className="block">
                 <span className="mb-2 block text-sm text-slate-300">Возраст</span>
                 <input
@@ -188,6 +197,7 @@ export default function QuestionnairePage() {
                   placeholder="27"
                 />
               </label>
+
               <label className="block">
                 <span className="mb-2 block text-sm text-slate-300">
                   Пол (опционально)

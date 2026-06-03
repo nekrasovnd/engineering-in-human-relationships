@@ -38,9 +38,15 @@ export default function ProfilePage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    const age = Number(editForm.age);
 
     if (!editForm.name.trim() || !editForm.age) {
       setError('Укажите имя и возраст.');
+      return;
+    }
+
+    if (!Number.isInteger(age) || age < 16 || age > 90) {
+      setError('Возраст должен быть от 16 до 90 лет.');
       return;
     }
 
@@ -48,7 +54,7 @@ export default function ProfilePage() {
       setSaving(true);
       await saveProfile(profile.userId, {
         name: editForm.name.trim(),
-        age: Number(editForm.age),
+        age,
         gender: editForm.gender,
         avatarInitials: editForm.name
           .trim()
@@ -57,8 +63,10 @@ export default function ProfilePage() {
           .map((item) => item[0]?.toUpperCase() || '')
           .join(''),
       });
-      setMessage('Базовые данные профиля обновлены без повторного прохождения опросника.');
-    } catch (requestError) {
+      setMessage(
+        'Базовые данные профиля обновлены без повторного прохождения опросника.',
+      );
+    } catch {
       setError('Не удалось сохранить базовые данные профиля.');
     } finally {
       setSaving(false);
@@ -107,7 +115,7 @@ export default function ProfilePage() {
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">50</p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
-                  числовых параметров сохранено в Firestore
+                  числовых параметров сохранено в приватном профиле Firestore
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
@@ -132,7 +140,10 @@ export default function ProfilePage() {
         title="Редактирование базовых данных"
         subtitle="Имя, возраст и пол можно поменять отдельно. Повторный опросник нужен только если вы хотите пересчитать психологическую карту."
       >
-        <form className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]" onSubmit={handleSaveProfileDetails}>
+        <form
+          className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]"
+          onSubmit={handleSaveProfileDetails}
+        >
           <label className="block">
             <span className="mb-2 block text-sm text-slate-300">Имя</span>
             <input

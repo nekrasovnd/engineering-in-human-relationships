@@ -4,7 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { useProfiles } from '../hooks/useProfiles';
 import { useTeams } from '../hooks/useTeams';
 import { createTeam } from '../services/firestore';
-import { buildTeamSummary, findMostConflictPair, getRecommendedRoles } from '../utils/teamAnalysis';
+import {
+  buildTeamSummary,
+  findMostConflictPair,
+  getRecommendedRoles,
+} from '../utils/teamAnalysis';
 import SectionCard from '../components/SectionCard';
 import TeamCard from '../components/TeamCard';
 
@@ -32,13 +36,19 @@ export default function TeamsPage() {
 
     setForm((current) => ({
       ...current,
-      memberIds: Array.from(new Set([profile.userId, ...current.memberIds, ...suggestedMemberIds])),
+      memberIds: Array.from(
+        new Set([profile.userId, ...current.memberIds, ...suggestedMemberIds]),
+      ),
     }));
   }, [location.state, profile.userId]);
 
   const teamableProfiles = useMemo(
     () => profiles.filter((item) => item.questionnaireCompleted),
     [profiles],
+  );
+  const availableMemberIds = useMemo(
+    () => new Set(teamableProfiles.map((item) => item.userId)),
+    [teamableProfiles],
   );
 
   const handleToggleMember = (userId) => {
@@ -67,16 +77,23 @@ export default function TeamsPage() {
       return;
     }
 
-    if (form.memberIds.length < 2) {
-      setError('Добавьте хотя бы двух участников, включая себя.');
-      return;
-    }
-
     try {
       setSaving(true);
+      const memberIds = Array.from(new Set(form.memberIds)).filter((memberId) =>
+        availableMemberIds.has(memberId),
+      );
 
-      const memberProfiles = form.memberIds
-        .map((memberId) => teamableProfiles.find((item) => item.userId === memberId))
+      if (memberIds.length < 2) {
+        setError(
+          'Добавьте минимум двух участников с завершённым профилем, включая себя.',
+        );
+        return;
+      }
+
+      const memberProfiles = memberIds
+        .map((memberId) =>
+          teamableProfiles.find((item) => item.userId === memberId),
+        )
         .filter(Boolean);
       const roles = getRecommendedRoles(memberProfiles);
       const conflictPair = findMostConflictPair(memberProfiles);
@@ -86,7 +103,7 @@ export default function TeamsPage() {
         description: form.description.trim(),
         goal: form.goal,
         createdBy: profile.userId,
-        memberIds: form.memberIds,
+        memberIds,
         memberSnapshots: memberProfiles.map((item) => ({
           userId: item.userId,
           name: item.name,
@@ -114,7 +131,7 @@ export default function TeamsPage() {
         goal: GOAL_OPTIONS[0],
         memberIds: [profile.userId],
       });
-    } catch (requestError) {
+    } catch {
       setError('Не удалось создать команду. Проверьте Firestore rules.');
     } finally {
       setSaving(false);
@@ -127,10 +144,15 @@ export default function TeamsPage() {
         title="Команды"
         subtitle="Создавайте рабочие, семейные или личные группы. Для каждой команды рассчитывается конфликтная пара и предлагаются роли."
       >
-        <form className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]" onSubmit={handleCreateTeam}>
+        <form
+          className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"
+          onSubmit={handleCreateTeam}
+        >
           <div className="space-y-4 rounded-[28px] border border-slate-800 bg-slate-950/40 p-5">
             <label className="block">
-              <span className="mb-2 block text-sm text-slate-300">Название команды</span>
+              <span className="mb-2 block text-sm text-slate-300">
+                Название команды
+              </span>
               <input
                 type="text"
                 value={form.name}
@@ -234,7 +256,11 @@ export default function TeamsPage() {
                           </p>
                         </div>
                         <span className="rounded-full bg-slate-950/80 px-3 py-1 text-xs text-blue-200">
-                          {candidate.userId === profile.userId ? 'Вы' : checked ? 'Добавлен' : 'Выбрать'}
+                          {candidate.userId === profile.userId
+                            ? 'Вы'
+                            : checked
+                              ? 'Добавлен'
+                              : 'Выбрать'}
                         </span>
                       </div>
                     </label>
@@ -254,7 +280,8 @@ export default function TeamsPage() {
           <p className="text-sm text-slate-400">Загружаем команды...</p>
         ) : teams.length === 0 ? (
           <p className="text-sm leading-7 text-slate-400">
-            Пока нет команд. Создайте первую группу и сразу увидите самую напряжённую пару и рекомендуемые роли.
+            Пока нет команд. Создайте первую группу и сразу увидите самую напряжённую
+            пару и рекомендуемые роли.
           </p>
         ) : (
           <div className="space-y-5">

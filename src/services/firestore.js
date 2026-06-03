@@ -7,22 +7,62 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 const nowIso = () => new Date().toISOString();
+const PUBLIC_PROFILE_FIELDS = [
+  'userId',
+  'name',
+  'age',
+  'gender',
+  'avatarInitials',
+  'factorScores',
+  'egoState',
+  'questionnaireCompleted',
+];
+
+function pickProfileFields(profile, keys) {
+  return keys.reduce((result, key) => {
+    if (Object.hasOwn(profile, key)) {
+      result[key] = profile[key];
+    }
+
+    return result;
+  }, {});
+}
 
 export async function saveProfile(userId, payload) {
-  await setDoc(
-    doc(db, 'profiles', userId),
-    {
-      userId,
-      ...payload,
-      updatedAt: nowIso(),
-      createdAt: payload.createdAt || nowIso(),
-    },
-    { merge: true },
-  );
+  const privateRef = doc(db, 'profiles', userId);
+  const publicRef = doc(db, 'publicProfiles', userId);
+  const [privateSnapshot, publicSnapshot] = await Promise.all([
+    getDoc(privateRef),
+    getDoc(publicRef),
+  ]);
+
+  const createdAt =
+    privateSnapshot.data()?.createdAt ||
+    publicSnapshot.data()?.createdAt ||
+    nowIso();
+  const updatedAt = nowIso();
+  const nextPrivateProfile = {
+    ...(privateSnapshot.data() || {}),
+    userId,
+    ...payload,
+    createdAt,
+    updatedAt,
+  };
+  const nextPublicProfile = {
+    ...pickProfileFields(nextPrivateProfile, PUBLIC_PROFILE_FIELDS),
+    createdAt,
+    updatedAt,
+  };
+
+  const batch = writeBatch(db);
+  batch.set(privateRef, nextPrivateProfile, { merge: true });
+  batch.set(publicRef, nextPublicProfile, { merge: true });
+  await batch.commit();
 }
 
 export async function createTeam(payload) {
@@ -35,14 +75,17 @@ export async function createTeam(payload) {
 
 export async function saveMatchDecision(payload) {
   const actionId = `${payload.fromUid}_${payload.toUid}`;
+  const actionRef = doc(db, 'matchActions', actionId);
+  const existingSnapshot = await getDoc(actionRef);
+  const createdAt = existingSnapshot.data()?.createdAt || nowIso();
 
   await setDoc(
-    doc(db, 'matchActions', actionId),
+    actionRef,
     {
       id: actionId,
       ...payload,
       updatedAt: nowIso(),
-      createdAt: payload.createdAt || nowIso(),
+      createdAt,
     },
     { merge: true },
   );

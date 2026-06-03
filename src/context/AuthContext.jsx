@@ -12,8 +12,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { saveProfile } from '../services/firestore';
 
 const AuthContext = createContext(null);
 
@@ -59,6 +60,28 @@ export function AuthProvider({ children }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || !profile?.questionnaireCompleted) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const ensurePublicProfile = async () => {
+      const publicSnapshot = await getDoc(doc(db, 'publicProfiles', user.uid));
+
+      if (!cancelled && !publicSnapshot.exists()) {
+        await saveProfile(user.uid, {});
+      }
+    };
+
+    ensurePublicProfile().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.questionnaireCompleted, user]);
 
   const value = useMemo(
     () => ({
