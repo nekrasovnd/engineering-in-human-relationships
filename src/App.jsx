@@ -11,11 +11,13 @@ import ProfilePage from './pages/ProfilePage';
 import QuestionnairePage from './pages/QuestionnairePage';
 import TeamsPage from './pages/TeamsPage';
 
+const APP_LOADING_LABEL = 'Синхронизируем профиль и маршруты...';
+
 function AuthOnlyRoute({ requireProfile = false }) {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return <LoadingScreen label="Синхронизируем профиль и маршруты..." />;
+    return <LoadingScreen label={APP_LOADING_LABEL} />;
   }
 
   if (!user) {
@@ -33,7 +35,7 @@ function AuthPageGate() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return <LoadingScreen label="Проверяем вход..." />;
+    return <LoadingScreen label={APP_LOADING_LABEL} />;
   }
 
   if (!user) {
@@ -52,7 +54,7 @@ function RootRedirect() {
   const location = useLocation();
 
   if (loading) {
-    return <LoadingScreen label="Готовим приложение..." />;
+    return <LoadingScreen label={APP_LOADING_LABEL} />;
   }
 
   if (!user) {

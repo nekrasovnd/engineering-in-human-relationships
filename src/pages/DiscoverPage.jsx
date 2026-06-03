@@ -16,8 +16,17 @@ import SwipeDeck from '../components/SwipeDeck';
 export default function DiscoverPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [isEnablingDiscover, setIsEnablingDiscover] = useState(false);
-  const discoverEnabled = Boolean(profile.discoverVisible) && !isEnablingDiscover;
+  const [visibilityOverride, setVisibilityOverride] = useState(null);
+  const [visibilityError, setVisibilityError] = useState('');
+  const [visibilityCommitPending, setVisibilityCommitPending] = useState(false);
+  const profileDiscoverVisible = Boolean(profile.discoverVisible);
+  const discoverVisible = visibilityOverride ?? profileDiscoverVisible;
+  const isVisibilitySyncingToProfile =
+    visibilityOverride !== null &&
+    visibilityOverride !== profileDiscoverVisible;
+  const isVisibilityPending =
+    visibilityCommitPending || isVisibilitySyncingToProfile;
+  const discoverEnabled = discoverVisible && !isVisibilityPending;
   const {
     profiles,
     loading,
@@ -38,21 +47,32 @@ export default function DiscoverPage() {
   const [busyId, setBusyId] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [matchMessage, setMatchMessage] = useState('');
-  const [visibilitySaving, setVisibilitySaving] = useState(false);
 
   const displayError = useMemo(() => {
-    const rawError = decisionError || discoverError || mutualMatchesError;
+    const rawError =
+      visibilityError || decisionError || discoverError || mutualMatchesError;
 
     if (!rawError) {
       return '';
     }
 
     if (rawError.includes('Missing or insufficient permissions')) {
-      return 'Лента ещё синхронизируется после включения видимости. Подождите пару секунд и попробуйте снова.';
+      return 'Не удалось загрузить ленту знакомств. Обновите страницу и попробуйте ещё раз.';
     }
 
     return rawError;
-  }, [decisionError, discoverError, mutualMatchesError]);
+  }, [decisionError, discoverError, mutualMatchesError, visibilityError]);
+
+  useEffect(() => {
+    if (
+      !visibilityCommitPending &&
+      visibilityOverride !== null &&
+      visibilityOverride === profileDiscoverVisible
+    ) {
+      setVisibilityOverride(null);
+      setVisibilityError('');
+    }
+  }, [profileDiscoverVisible, visibilityCommitPending, visibilityOverride]);
 
   useEffect(() => {
     if (!discoverEnabled) {
@@ -130,26 +150,29 @@ export default function DiscoverPage() {
     }
   };
 
-  const handleEnableDiscover = async () => {
+  const handleSetDiscoverVisibility = async (nextValue) => {
     setDecisionError('');
+    setVisibilityError('');
+    setVisibilityOverride(nextValue);
+    setVisibilityCommitPending(true);
 
     try {
-      setIsEnablingDiscover(true);
-      setVisibilitySaving(true);
       await saveProfile(profile.userId, {
-        discoverVisible: true,
+        discoverVisible: nextValue,
       });
     } catch {
-      setDecisionError('Не удалось включить видимость профиля.');
+      setVisibilityOverride(null);
+      setVisibilityError(
+        nextValue
+          ? 'Не удалось включить видимость профиля.'
+          : 'Не удалось скрыть профиль из знакомств.',
+      );
     } finally {
-      setVisibilitySaving(false);
-      window.setTimeout(() => {
-        setIsEnablingDiscover(false);
-      }, 1200);
+      setVisibilityCommitPending(false);
     }
   };
 
-  if (!discoverEnabled) {
+  if (!discoverVisible) {
     return (
       <div className="space-y-6">
         <SectionCard
@@ -165,14 +188,20 @@ export default function DiscoverPage() {
             </p>
             <button
               type="button"
-              onClick={handleEnableDiscover}
-              disabled={visibilitySaving}
+              onClick={() => handleSetDiscoverVisibility(true)}
+              disabled={isVisibilityPending}
               className="mt-5 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {visibilitySaving
+              {isVisibilityPending
                 ? 'Включаем видимость...'
                 : 'Показывать мой профиль'}
             </button>
+
+            {displayError ? (
+              <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                {displayError}
+              </div>
+            ) : null}
           </div>
         </SectionCard>
       </div>
@@ -184,10 +213,26 @@ export default function DiscoverPage() {
       <SectionCard
         title="Режим знакомств"
         subtitle="Здесь видны только те люди, которые тоже сами включили видимость в знакомствах."
+        action={
+          <button
+            type="button"
+            onClick={() => handleSetDiscoverVisibility(false)}
+            disabled={isVisibilityPending}
+            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isVisibilityPending ? 'Сохраняем...' : 'Скрыть мой профиль'}
+          </button>
+        }
       >
         {matchMessage ? (
           <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
             {matchMessage}
+          </div>
+        ) : null}
+
+        {isVisibilityPending ? (
+          <div className="mb-5 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-100">
+            Обновляем видимость профиля...
           </div>
         ) : null}
 

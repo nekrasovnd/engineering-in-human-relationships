@@ -20,10 +20,8 @@ export default function ProfilePage() {
     gender: '',
   });
   const [saving, setSaving] = useState(false);
-  const [discoverSaving, setDiscoverSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [discoverError, setDiscoverError] = useState('');
 
   useEffect(() => {
     if (!profile) {
@@ -73,21 +71,6 @@ export default function ProfilePage() {
       setError('Не удалось сохранить базовые данные профиля.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleToggleDiscoverVisibility = async () => {
-    setDiscoverError('');
-
-    try {
-      setDiscoverSaving(true);
-      await saveProfile(profile.userId, {
-        discoverVisible: !profile.discoverVisible,
-      });
-    } catch {
-      setDiscoverError('Не удалось обновить видимость профиля.');
-    } finally {
-      setDiscoverSaving(false);
     }
   };
 
@@ -234,43 +217,6 @@ export default function ProfilePage() {
         {error ? (
           <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             {error}
-          </div>
-        ) : null}
-      </SectionCard>
-
-      <SectionCard
-        title="Видимость в знакомствах"
-        subtitle="По умолчанию профиль скрыт. Пока вы сами не включите видимость, другие пользователи не увидят вас в ленте знакомств."
-      >
-        <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800 bg-slate-950/40 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-white">
-              {profile.discoverVisible
-                ? 'Профиль сейчас виден в знакомствах.'
-                : 'Профиль сейчас скрыт из знакомств.'}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Видимость нужна только для раздела знакомств. Команды и сравнение теперь не строятся на общем каталоге всех пользователей.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleToggleDiscoverVisibility}
-            disabled={discoverSaving}
-            className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-5 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {discoverSaving
-              ? 'Сохраняем...'
-              : profile.discoverVisible
-                ? 'Скрыть мой профиль'
-                : 'Показывать мой профиль'}
-          </button>
-        </div>
-
-        {discoverError ? (
-          <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {discoverError}
           </div>
         ) : null}
       </SectionCard>
