@@ -16,7 +16,8 @@ import SwipeDeck from '../components/SwipeDeck';
 export default function DiscoverPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const discoverEnabled = Boolean(profile.discoverVisible);
+  const [isEnablingDiscover, setIsEnablingDiscover] = useState(false);
+  const discoverEnabled = Boolean(profile.discoverVisible) && !isEnablingDiscover;
   const {
     profiles,
     loading,
@@ -38,6 +39,20 @@ export default function DiscoverPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [matchMessage, setMatchMessage] = useState('');
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+
+  const displayError = useMemo(() => {
+    const rawError = decisionError || discoverError || mutualMatchesError;
+
+    if (!rawError) {
+      return '';
+    }
+
+    if (rawError.includes('Missing or insufficient permissions')) {
+      return 'Лента ещё синхронизируется после включения видимости. Подождите пару секунд и попробуйте снова.';
+    }
+
+    return rawError;
+  }, [decisionError, discoverError, mutualMatchesError]);
 
   useEffect(() => {
     if (!discoverEnabled) {
@@ -119,6 +134,7 @@ export default function DiscoverPage() {
     setDecisionError('');
 
     try {
+      setIsEnablingDiscover(true);
       setVisibilitySaving(true);
       await saveProfile(profile.userId, {
         discoverVisible: true,
@@ -127,6 +143,9 @@ export default function DiscoverPage() {
       setDecisionError('Не удалось включить видимость профиля.');
     } finally {
       setVisibilitySaving(false);
+      window.setTimeout(() => {
+        setIsEnablingDiscover(false);
+      }, 1200);
     }
   };
 
@@ -172,9 +191,9 @@ export default function DiscoverPage() {
           </div>
         ) : null}
 
-        {decisionError || discoverError || mutualMatchesError ? (
+        {displayError ? (
           <div className="mb-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {decisionError || discoverError || mutualMatchesError}
+            {displayError}
           </div>
         ) : null}
 
