@@ -57,6 +57,64 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/teamJoinCodes/$(code));
     }
 
+    function hasInviteDraftKeys() {
+      return request.resource.data.keys().hasOnly([
+        'teamId',
+        'teamName',
+        'teamDescription',
+        'teamGoal',
+        'fromUid',
+        'fromName',
+        'fromAvatarInitials',
+        'toUid',
+        'toName',
+        'toAvatarInitials',
+        'status',
+        'source',
+        'joinCode',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function isDirectInviteDraft() {
+      return hasInviteDraftKeys()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source == 'direct'
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.joinCode == null
+        && getAfter(
+          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
+        ).data.createdBy == request.auth.uid;
+    }
+
+    function isCodeInviteDraft() {
+      return hasInviteDraftKeys()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source == 'code'
+        && request.resource.data.toUid == request.auth.uid
+        && request.resource.data.fromUid != request.auth.uid
+        && request.resource.data.joinCode is string
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.active == true
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.teamId == request.resource.data.teamId
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.createdBy == request.resource.data.fromUid
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.teamName == request.resource.data.teamName
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.teamDescription == request.resource.data.teamDescription
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.teamGoal == request.resource.data.teamGoal
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.createdByName == request.resource.data.fromName
+        && teamJoinCodeDoc(request.resource.data.joinCode).data.createdByAvatarInitials == request.resource.data.fromAvatarInitials;
+    }
+
+    function canReuseCodeInvite() {
+      return resource.data.status == 'declined'
+        && resource.data.toUid == request.auth.uid
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.toUid == resource.data.toUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isCodeInviteDraft();
+    }
+
     function canAcceptInvite(teamId) {
       let invite = pendingInvite(teamId);
       return invite.data != null
@@ -119,70 +177,36 @@ service cloud.firestore {
           || resource.data.toUid == request.auth.uid
         );
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly([
-          'teamId',
-          'teamName',
-          'teamDescription',
-          'teamGoal',
-          'fromUid',
-          'fromName',
-          'fromAvatarInitials',
-          'toUid',
-          'toName',
-          'toAvatarInitials',
-          'status',
-          'source',
-          'joinCode',
-          'createdAt',
-          'updatedAt',
-        ])
-        && request.resource.data.status == 'pending'
         && (
-          (
-            request.resource.data.source == 'direct'
-            && request.resource.data.fromUid == request.auth.uid
-            && request.resource.data.toUid != request.auth.uid
-            && request.resource.data.joinCode == null
-            && getAfter(
-              /databases/$(database)/documents/teams/$(request.resource.data.teamId)
-            ).data.createdBy == request.auth.uid
-          )
-          || (
-            request.resource.data.source == 'code'
-            && request.resource.data.toUid == request.auth.uid
-            && request.resource.data.fromUid != request.auth.uid
-            && request.resource.data.joinCode is string
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.active == true
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.teamId == request.resource.data.teamId
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.createdBy == request.resource.data.fromUid
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.teamName == request.resource.data.teamName
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.teamDescription == request.resource.data.teamDescription
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.teamGoal == request.resource.data.teamGoal
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.createdByName == request.resource.data.fromName
-            && teamJoinCodeDoc(request.resource.data.joinCode).data.createdByAvatarInitials == request.resource.data.fromAvatarInitials
-          )
+          isDirectInviteDraft()
+          || isCodeInviteDraft()
         );
       allow update: if isSignedIn()
-        && resource.data.toUid == request.auth.uid
-        && resource.data.status == 'pending'
-        && request.resource.data.fromUid == resource.data.fromUid
-        && request.resource.data.toUid == resource.data.toUid
-        && request.resource.data.teamId == resource.data.teamId
-        && request.resource.data.teamName == resource.data.teamName
-        && request.resource.data.teamDescription == resource.data.teamDescription
-        && request.resource.data.teamGoal == resource.data.teamGoal
-        && request.resource.data.fromName == resource.data.fromName
-        && request.resource.data.fromAvatarInitials == resource.data.fromAvatarInitials
-        && request.resource.data.toName == resource.data.toName
-        && request.resource.data.toAvatarInitials == resource.data.toAvatarInitials
-        && request.resource.data.source == resource.data.source
-        && request.resource.data.joinCode == resource.data.joinCode
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ['accepted', 'declined']
-        && request.resource.data
-          .diff(resource.data)
-          .affectedKeys()
-          .hasOnly(['status', 'respondedAt', 'updatedAt']);
+        && (
+          (
+            resource.data.toUid == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.fromUid == resource.data.fromUid
+            && request.resource.data.toUid == resource.data.toUid
+            && request.resource.data.teamId == resource.data.teamId
+            && request.resource.data.teamName == resource.data.teamName
+            && request.resource.data.teamDescription == resource.data.teamDescription
+            && request.resource.data.teamGoal == resource.data.teamGoal
+            && request.resource.data.fromName == resource.data.fromName
+            && request.resource.data.fromAvatarInitials == resource.data.fromAvatarInitials
+            && request.resource.data.toName == resource.data.toName
+            && request.resource.data.toAvatarInitials == resource.data.toAvatarInitials
+            && request.resource.data.source == resource.data.source
+            && request.resource.data.joinCode == resource.data.joinCode
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status in ['accepted', 'declined']
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['status', 'respondedAt', 'updatedAt'])
+          )
+          || canReuseCodeInvite()
+        );
       allow delete: if false;
     }
 

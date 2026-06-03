@@ -2,6 +2,8 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
   query,
   setDoc,
@@ -337,13 +339,20 @@ export async function requestTeamInviteByCode(code, profile) {
     throw new Error('own-team');
   }
 
+  const existingInvitesSnapshot = await getDocs(
+    query(
+      collection(db, 'teamInvites'),
+      where('teamId', '==', joinCodeData.teamId),
+      where('toUid', '==', profile.userId),
+      limit(1),
+    ),
+  );
+  const currentInvite = existingInvitesSnapshot.docs[0]?.data();
   const inviteRef = doc(
     db,
     'teamInvites',
     `${joinCodeData.teamId}_${profile.userId}`,
   );
-  const inviteSnapshot = await getDoc(inviteRef);
-  const currentInvite = inviteSnapshot.data();
 
   if (currentInvite?.status === 'accepted') {
     throw new Error('already-joined');

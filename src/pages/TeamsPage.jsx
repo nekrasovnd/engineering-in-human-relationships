@@ -73,6 +73,8 @@ export default function TeamsPage() {
   const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
   const [copiedCodeForTeamId, setCopiedCodeForTeamId] = useState('');
   const [copyFailedForTeamId, setCopyFailedForTeamId] = useState('');
+  const [codeInviteError, setCodeInviteError] = useState('');
+  const [codeInviteSuccess, setCodeInviteSuccess] = useState('');
   const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -143,6 +145,8 @@ export default function TeamsPage() {
     event.preventDefault();
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
@@ -179,6 +183,8 @@ export default function TeamsPage() {
   const handleAcceptInvite = async (inviteId) => {
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
 
     try {
       setRespondingInviteId(inviteId);
@@ -193,6 +199,8 @@ export default function TeamsPage() {
   const handleDeclineInvite = async (inviteId) => {
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
 
     try {
       setRespondingInviteId(inviteId);
@@ -207,9 +215,11 @@ export default function TeamsPage() {
   const handleRequestByCode = async () => {
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
 
     if (!codeInviteValue.trim()) {
-      setError('Введите код приглашения.');
+      setCodeInviteError('Введите код приглашения.');
       return;
     }
 
@@ -217,20 +227,22 @@ export default function TeamsPage() {
       setCodeInviteLoading(true);
       const result = await requestTeamInviteByCode(codeInviteValue, profile);
       setCodeInviteValue('');
-      setCodeSuccess(
+      setCodeInviteSuccess(
         `Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`,
       );
     } catch (requestError) {
       if (requestError.message === 'code-not-found') {
-        setError('Такой код не найден или уже выключен.');
+        setCodeInviteError('Такой код не найден или уже выключен.');
+      } else if (requestError.message === 'invalid-code') {
+        setCodeInviteError('Код выглядит слишком коротким или неполным.');
       } else if (requestError.message === 'invite-already-pending') {
-        setError('По этому коду у вас уже есть ожидающее приглашение.');
+        setCodeInviteError('По этому коду у вас уже есть ожидающее приглашение.');
       } else if (requestError.message === 'already-joined') {
-        setError('Вы уже состоите в этой команде.');
+        setCodeInviteError('Вы уже состоите в этой команде.');
       } else if (requestError.message === 'own-team') {
-        setError('Это код вашей собственной команды.');
+        setCodeInviteError('Это код вашей собственной команды.');
       } else {
-        setError('Не удалось использовать код приглашения.');
+        setCodeInviteError('Не удалось использовать код приглашения.');
       }
     } finally {
       setCodeInviteLoading(false);
@@ -240,6 +252,8 @@ export default function TeamsPage() {
   const handleGenerateCode = async (team) => {
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
 
     try {
       setGeneratingCodeForTeamId(team.id);
@@ -255,6 +269,8 @@ export default function TeamsPage() {
   const handleCopyCode = async (teamId, code) => {
     setError('');
     setCodeSuccess('');
+    setCodeInviteError('');
+    setCodeInviteSuccess('');
     setCopiedCodeForTeamId('');
     setCopyFailedForTeamId('');
 
@@ -425,9 +441,17 @@ export default function TeamsPage() {
                 <input
                   type="text"
                   value={codeInviteValue}
-                  onChange={(event) =>
-                    setCodeInviteValue(event.target.value.toUpperCase())
-                  }
+                  onChange={(event) => {
+                    setCodeInviteValue(event.target.value.toUpperCase());
+
+                    if (codeInviteError) {
+                      setCodeInviteError('');
+                    }
+
+                    if (codeInviteSuccess) {
+                      setCodeInviteSuccess('');
+                    }
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault();
@@ -447,6 +471,18 @@ export default function TeamsPage() {
                   {codeInviteLoading ? 'Проверяем код...' : 'Войти по коду'}
                 </button>
               </div>
+
+              {codeInviteError ? (
+                <div className="mt-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                  {codeInviteError}
+                </div>
+              ) : null}
+
+              {codeInviteSuccess ? (
+                <div className="mt-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                  {codeInviteSuccess}
+                </div>
+              ) : null}
             </div>
           </div>
         </form>
