@@ -78,18 +78,14 @@ function buildDiscoverProfile(profile, createdAt, updatedAt) {
 export async function saveProfile(userId, payload) {
   const privateRef = doc(db, 'profiles', userId);
   const discoverRef = doc(db, 'discoverProfiles', userId);
-  const legacyPublicRef = doc(db, 'publicProfiles', userId);
-  const [privateSnapshot, discoverSnapshot, legacyPublicSnapshot] =
-    await Promise.all([
-      getDoc(privateRef),
-      getDoc(discoverRef),
-      getDoc(legacyPublicRef),
-    ]);
+  const [privateSnapshot, discoverSnapshot] = await Promise.all([
+    getDoc(privateRef),
+    getDoc(discoverRef),
+  ]);
 
   const createdAt =
     privateSnapshot.data()?.createdAt ||
     discoverSnapshot.data()?.createdAt ||
-    legacyPublicSnapshot.data()?.createdAt ||
     nowIso();
   const updatedAt = nowIso();
   const nextPrivateProfile = {
@@ -112,9 +108,7 @@ export async function saveProfile(userId, payload) {
     nextPrivateProfile.discoverVisible
   ) {
     const discoverCreatedAt =
-      discoverSnapshot.data()?.createdAt ||
-      legacyPublicSnapshot.data()?.createdAt ||
-      createdAt;
+      discoverSnapshot.data()?.createdAt || createdAt;
 
     batch.set(
       discoverRef,
@@ -127,10 +121,6 @@ export async function saveProfile(userId, payload) {
     );
   } else {
     batch.delete(discoverRef);
-  }
-
-  if (legacyPublicSnapshot.exists()) {
-    batch.delete(legacyPublicRef);
   }
 
   await batch.commit();
