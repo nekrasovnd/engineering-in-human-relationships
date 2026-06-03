@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useProfiles } from '../hooks/useProfiles';
+import { useMutualMatches } from '../hooks/useMutualMatches';
+import { useTeamInvites } from '../hooks/useTeamInvites';
 import { useTeams } from '../hooks/useTeams';
-import { createTeam } from '../services/firestore';
-import { formatEgoStateLabel } from '../utils/egoState';
 import {
-  buildTeamSummary,
-  findMostConflictPair,
-  getRecommendedRoles,
-} from '../utils/teamAnalysis';
+  acceptTeamInvite,
+  createTeamWithInvites,
+  declineTeamInvite,
+} from '../services/firestore';
+import { formatEgoStateLabel } from '../utils/egoState';
 import SectionCard from '../components/SectionCard';
 import TeamCard from '../components/TeamCard';
 
@@ -18,15 +18,22 @@ const GOAL_OPTIONS = ['Работа', 'Семья', 'Личные отношен
 export default function TeamsPage() {
   const location = useLocation();
   const { profile } = useAuth();
-  const { profiles, loading: profilesLoading } = useProfiles(profile.userId);
+  const { mutualMatches, loading: matchesLoading } = useMutualMatches(
+    profile.userId,
+    {
+      enabled: profile.discoverVisible,
+    },
+  );
+  const { invites, loading: invitesLoading } = useTeamInvites(profile.userId);
   const { teams, loading: teamsLoading } = useTeams(profile.userId);
   const [form, setForm] = useState({
     name: '',
     description: '',
     goal: GOAL_OPTIONS[0],
-    memberIds: [profile.userId],
+    inviteeIds: [],
   });
   const [saving, setSaving] = useState(false);
+  const [respondingInviteId, setRespondingInviteId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -37,34 +44,33 @@ export default function TeamsPage() {
 
     setForm((current) => ({
       ...current,
-      memberIds: Array.from(
-        new Set([profile.userId, ...current.memberIds, ...suggestedMemberIds]),
+      inviteeIds: Array.from(
+        new Set([...current.inviteeIds, ...suggestedMemberIds]),
       ),
     }));
-  }, [location.state, profile.userId]);
+  }, [location.state]);
 
-  const teamableProfiles = useMemo(
-    () => profiles.filter((item) => item.questionnaireCompleted),
-    [profiles],
+  const pendingInvites = useMemo(
+    () => invites.filter((item) => item.status === 'pending'),
+    [invites],
   );
-  const availableMemberIds = useMemo(
-    () => new Set(teamableProfiles.map((item) => item.userId)),
-    [teamableProfiles],
+  const createdTeams = useMemo(
+    () => teams.filter((team) => team.createdBy === profile.userId),
+    [profile.userId, teams],
+  );
+  const joinedTeams = useMemo(
+    () => teams.filter((team) => team.createdBy !== profile.userId),
+    [profile.userId, teams],
   );
 
-  const handleToggleMember = (userId) => {
+  const handleToggleInvitee = (userId) => {
     setForm((current) => {
-      const exists = current.memberIds.includes(userId);
-      const nextMemberIds = exists
-        ? current.memberIds.filter((item) => item !== userId)
-        : [...current.memberIds, userId];
-
+      const exists = current.inviteeIds.includes(userId);
       return {
         ...current,
-        memberIds:
-          userId === profile.userId || nextMemberIds.includes(profile.userId)
-            ? nextMemberIds
-            : [profile.userId, ...nextMemberIds],
+        inviteeIds: exists
+          ? current.inviteeIds.filter((item) => item !== userId)
+          : [...current.inviteeIds, userId],
       };
     });
   };
@@ -80,62 +86,54 @@ export default function TeamsPage() {
 
     try {
       setSaving(true);
-      const memberIds = Array.from(new Set(form.memberIds)).filter((memberId) =>
-        availableMemberIds.has(memberId),
+      const invitedProfiles = mutualMatches.filter((item) =>
+        form.inviteeIds.includes(item.userId),
       );
 
-      if (memberIds.length < 2) {
-        setError(
-          'Добавьте минимум двух участников с завершённым профилем, включая себя.',
-        );
-        return;
-      }
-
-      const memberProfiles = memberIds
-        .map((memberId) =>
-          teamableProfiles.find((item) => item.userId === memberId),
-        )
-        .filter(Boolean);
-      const roles = getRecommendedRoles(memberProfiles);
-      const conflictPair = findMostConflictPair(memberProfiles);
-
-      await createTeam({
+      await createTeamWithInvites({
         name: form.name.trim(),
         description: form.description.trim(),
         goal: form.goal,
-        createdBy: profile.userId,
-        memberIds,
-        memberSnapshots: memberProfiles.map((item) => ({
-          userId: item.userId,
-          name: item.name,
-          avatarInitials: item.avatarInitials,
-          egoState: item.egoState,
-          factorScores: item.factorScores,
-        })),
-        analysis: {
-          summary: buildTeamSummary(memberProfiles),
-          roles,
-          conflictPair: conflictPair
-            ? {
-                leftName: conflictPair.left.name,
-                rightName: conflictPair.right.name,
-                compatibility: conflictPair.compatibility,
-                conflictRisk: conflictPair.conflictRisk,
-              }
-            : null,
-        },
+        creatorProfile: profile,
+        invitedProfiles,
       });
 
       setForm({
         name: '',
         description: '',
         goal: GOAL_OPTIONS[0],
-        memberIds: [profile.userId],
+        inviteeIds: [],
       });
     } catch {
-      setError('Не удалось создать команду. Попробуйте ещё раз.');
+      setError('Не удалось создать команду или отправить приглашения.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAcceptInvite = async (inviteId) => {
+    setError('');
+
+    try {
+      setRespondingInviteId(inviteId);
+      await acceptTeamInvite(inviteId, profile);
+    } catch {
+      setError('Не удалось принять приглашение.');
+    } finally {
+      setRespondingInviteId('');
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId) => {
+    setError('');
+
+    try {
+      setRespondingInviteId(inviteId);
+      await declineTeamInvite(inviteId);
+    } catch {
+      setError('Не удалось отклонить приглашение.');
+    } finally {
+      setRespondingInviteId('');
     }
   };
 
@@ -143,7 +141,7 @@ export default function TeamsPage() {
     <div className="space-y-6">
       <SectionCard
         title="Команды"
-        subtitle="Соберите людей в одну группу и быстро посмотрите, как им будет вместе."
+        subtitle="Команда теперь собирается через приглашения. Общего списка всех пользователей здесь больше нет."
       >
         <form
           className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"
@@ -215,24 +213,32 @@ export default function TeamsPage() {
               disabled={saving}
               className="w-full rounded-2xl bg-blue-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? 'Создаём команду...' : 'Создать команду'}
+              {saving
+                ? 'Создаём команду...'
+                : form.inviteeIds.length > 0
+                  ? 'Создать команду и отправить приглашения'
+                  : 'Создать команду'}
             </button>
           </div>
 
           <div className="rounded-[28px] border border-slate-800 bg-slate-950/40 p-5">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              Участники
+              Кого можно пригласить
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Здесь показываются только люди с заполненным профилем.
+              Здесь показываются только взаимные совпадения из знакомств. Это убирает общий каталог пользователей и оставляет приглашения только по взаимному согласию.
             </p>
 
-            {profilesLoading ? (
-              <p className="mt-4 text-sm text-slate-400">Загружаем участников...</p>
+            {matchesLoading ? (
+              <p className="mt-4 text-sm text-slate-400">Собираем взаимные совпадения...</p>
+            ) : mutualMatches.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-sm leading-6 text-slate-400">
+                Пока нет взаимных совпадений. Сначала они появятся в знакомствах, а уже потом здесь можно будет отправить приглашение в команду.
+              </div>
             ) : (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {teamableProfiles.map((candidate) => {
-                  const checked = form.memberIds.includes(candidate.userId);
+                {mutualMatches.map((candidate) => {
+                  const checked = form.inviteeIds.includes(candidate.userId);
                   return (
                     <label
                       key={candidate.userId}
@@ -245,8 +251,7 @@ export default function TeamsPage() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={candidate.userId === profile.userId}
-                        onChange={() => handleToggleMember(candidate.userId)}
+                        onChange={() => handleToggleInvitee(candidate.userId)}
                         className="sr-only"
                       />
                       <div className="flex items-center justify-between gap-3">
@@ -257,11 +262,7 @@ export default function TeamsPage() {
                           </p>
                         </div>
                         <span className="rounded-full bg-slate-950/80 px-3 py-1 text-xs text-blue-200">
-                          {candidate.userId === profile.userId
-                            ? 'Вы'
-                            : checked
-                              ? 'Добавлен'
-                              : 'Выбрать'}
+                          {checked ? 'Будет приглашён' : 'Пригласить'}
                         </span>
                       </div>
                     </label>
@@ -274,26 +275,100 @@ export default function TeamsPage() {
       </SectionCard>
 
       <SectionCard
-        title="Мои команды"
-        subtitle="Здесь собраны команды, в которых вы участвуете."
+        title="Приглашения"
+        subtitle="Здесь команды, в которые вас уже пригласили, но вы ещё не решили, вступать или нет."
+      >
+        {invitesLoading ? (
+          <p className="text-sm text-slate-400">Загружаем приглашения...</p>
+        ) : pendingInvites.length === 0 ? (
+          <p className="text-sm leading-7 text-slate-400">
+            Пока новых приглашений нет.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {pendingInvites.map((invite) => (
+              <div
+                key={invite.id}
+                className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5"
+              >
+                <p className="font-display text-xl text-white">{invite.teamName}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  {invite.teamDescription}
+                </p>
+                <p className="mt-3 text-xs uppercase tracking-[0.24em] text-slate-400">
+                  {invite.teamGoal}
+                </p>
+                <p className="mt-3 text-sm text-slate-400">
+                  Пригласил: {invite.fromName}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleAcceptInvite(invite.id)}
+                    disabled={respondingInviteId === invite.id}
+                    className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {respondingInviteId === invite.id
+                      ? 'Обрабатываем...'
+                      : 'Вступить'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeclineInvite(invite.id)}
+                    disabled={respondingInviteId === invite.id}
+                    className="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Созданные мной"
+        subtitle="Здесь собраны команды, которые вы создали сами."
       >
         {teamsLoading ? (
           <p className="text-sm text-slate-400">Загружаем команды...</p>
-        ) : teams.length === 0 ? (
+        ) : createdTeams.length === 0 ? (
           <p className="text-sm leading-7 text-slate-400">
-            Пока нет ни одной команды. Создайте первую группу, и здесь сразу появится её разбор по ролям и напряжённым связкам.
+            Пока вы не создали ни одной команды.
           </p>
         ) : (
           <div className="space-y-5">
-            {teams.map((team) => {
-              const members =
-                team.memberIds
-                  ?.map((memberId) =>
-                    teamableProfiles.find((item) => item.userId === memberId),
-                  )
-                  .filter(Boolean) || [];
-              return <TeamCard key={team.id} team={team} memberProfiles={members} />;
-            })}
+            {createdTeams.map((team) => (
+              <TeamCard
+                key={team.id}
+                team={team}
+                memberProfiles={team.memberSnapshots || []}
+              />
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Команды, где я участвую"
+        subtitle="Здесь команды, в которые вас пригласили и вы уже вступили."
+      >
+        {teamsLoading ? (
+          <p className="text-sm text-slate-400">Загружаем команды...</p>
+        ) : joinedTeams.length === 0 ? (
+          <p className="text-sm leading-7 text-slate-400">
+            Пока вы ещё не вступили ни в одну чужую команду.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {joinedTeams.map((team) => (
+              <TeamCard
+                key={team.id}
+                team={team}
+                memberProfiles={team.memberSnapshots || []}
+              />
+            ))}
           </div>
         )}
       </SectionCard>

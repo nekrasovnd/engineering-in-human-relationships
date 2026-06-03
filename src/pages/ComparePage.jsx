@@ -1,21 +1,72 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useProfiles } from '../hooks/useProfiles';
+import { useMutualMatches } from '../hooks/useMutualMatches';
+import { useTeams } from '../hooks/useTeams';
 import { calculateCompatibility } from '../utils/compatibility';
 import { formatEgoStateLabel } from '../utils/egoState';
 import ComparisonResultCard from '../components/ComparisonResultCard';
 import SectionCard from '../components/SectionCard';
 
-export default function ComparePage() {
-  const { profile } = useAuth();
-  const { profiles, loading } = useProfiles(profile.userId, { excludeCurrent: true });
-  const [selectedId, setSelectedId] = useState('');
+function mergeCandidates(mutualMatches, teams, currentUserId) {
+  const map = new Map();
 
-  const selectedProfile = useMemo(
-    () => profiles.find((item) => item.userId === selectedId) || null,
-    [profiles, selectedId],
+  mutualMatches.forEach((item) => {
+    map.set(item.userId, item);
+  });
+
+  teams.forEach((team) => {
+    (team.memberSnapshots || []).forEach((member) => {
+      if (!member?.userId || member.userId === currentUserId) {
+        return;
+      }
+
+      if (!map.has(member.userId)) {
+        map.set(member.userId, member);
+      }
+    });
+  });
+
+  return Array.from(map.values()).sort((left, right) =>
+    (left.name || '').localeCompare(right.name || '', 'ru'),
+  );
+}
+
+export default function ComparePage() {
+  const location = useLocation();
+  const { profile } = useAuth();
+  const { mutualMatches, loading: matchesLoading } = useMutualMatches(
+    profile.userId,
+    {
+      enabled: profile.discoverVisible,
+    },
+  );
+  const { teams, loading: teamsLoading } = useTeams(profile.userId);
+  const [selectedId, setSelectedId] = useState('');
+  const candidates = useMemo(
+    () => mergeCandidates(mutualMatches, teams, profile.userId),
+    [mutualMatches, profile.userId, teams],
   );
 
+  useEffect(() => {
+    const preferredId = location.state?.selectedUserId || '';
+    if (!preferredId) {
+      return;
+    }
+
+    setSelectedId(preferredId);
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!selectedId && candidates.length > 0) {
+      setSelectedId(candidates[0].userId);
+    }
+  }, [candidates, selectedId]);
+
+  const selectedProfile = useMemo(
+    () => candidates.find((item) => item.userId === selectedId) || null,
+    [candidates, selectedId],
+  );
   const comparison = selectedProfile
     ? calculateCompatibility(profile, selectedProfile)
     : null;
@@ -24,19 +75,19 @@ export default function ComparePage() {
     <div className="space-y-6">
       <SectionCard
         title="Сравнение пользователей"
-        subtitle="Выберите человека и сразу посмотрите, насколько вам будет комфортно вместе."
+        subtitle="Здесь доступны только взаимные совпадения и участники ваших команд. Общего каталога всех профилей больше нет."
       >
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
             Кандидат для сравнения
           </p>
 
-          {loading ? (
-            <p className="mt-4 text-sm text-slate-400">Загружаем список профилей...</p>
-          ) : profiles.length === 0 ? (
-            <p className="mt-4 text-sm leading-6 text-slate-400">
-              Пока нет других пользователей с завершённым профилем.
-            </p>
+          {matchesLoading || teamsLoading ? (
+            <p className="mt-4 text-sm text-slate-400">Собираем доступные профили...</p>
+          ) : candidates.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-sm leading-6 text-slate-400">
+              Сравнение станет доступно, когда у вас появятся взаимные совпадения в знакомствах или команды с другими участниками.
+            </div>
           ) : (
             <>
               <select
@@ -44,16 +95,15 @@ export default function ComparePage() {
                 onChange={(event) => setSelectedId(event.target.value)}
                 className="mt-4 w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
               >
-                <option value="">Выберите пользователя</option>
-                {profiles.map((item) => (
-                <option key={item.userId} value={item.userId}>
+                {candidates.map((item) => (
+                  <option key={item.userId} value={item.userId}>
                     {item.name} · {formatEgoStateLabel(item.egoState)}
-                </option>
-              ))}
+                  </option>
+                ))}
               </select>
 
               <div className="mt-5 space-y-3">
-                {profiles.slice(0, 6).map((item) => {
+                {candidates.slice(0, 6).map((item) => {
                   const quick = calculateCompatibility(profile, item);
                   return (
                     <button

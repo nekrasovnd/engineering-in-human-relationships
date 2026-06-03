@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -10,9 +9,14 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import {
+  buildTeamSummary,
+  findMostConflictPair,
+  getRecommendedRoles,
+} from '../utils/teamAnalysis';
 
 const nowIso = () => new Date().toISOString();
-const PUBLIC_PROFILE_FIELDS = [
+const DISCOVER_PROFILE_FIELDS = [
   'userId',
   'name',
   'age',
@@ -21,6 +25,7 @@ const PUBLIC_PROFILE_FIELDS = [
   'factorScores',
   'egoState',
   'questionnaireCompleted',
+  'discoverVisible',
 ];
 
 function pickProfileFields(profile, keys) {
@@ -33,35 +38,101 @@ function pickProfileFields(profile, keys) {
   }, {});
 }
 
+function buildMemberSnapshot(profile) {
+  return {
+    userId: profile.userId,
+    name: profile.name,
+    avatarInitials: profile.avatarInitials,
+    egoState: profile.egoState,
+    factorScores: profile.factorScores,
+  };
+}
+
+function buildTeamAnalysis(memberProfiles) {
+  const roles = getRecommendedRoles(memberProfiles);
+  const conflictPair = findMostConflictPair(memberProfiles);
+
+  return {
+    summary: buildTeamSummary(memberProfiles),
+    roles,
+    conflictPair: conflictPair
+      ? {
+          leftName: conflictPair.left.name,
+          rightName: conflictPair.right.name,
+          compatibility: conflictPair.compatibility,
+          conflictRisk: conflictPair.conflictRisk,
+        }
+      : null,
+  };
+}
+
+function buildDiscoverProfile(profile, createdAt, updatedAt) {
+  return {
+    ...pickProfileFields(profile, DISCOVER_PROFILE_FIELDS),
+    discoverVisible: true,
+    createdAt,
+    updatedAt,
+  };
+}
+
 export async function saveProfile(userId, payload) {
   const privateRef = doc(db, 'profiles', userId);
-  const publicRef = doc(db, 'publicProfiles', userId);
-  const [privateSnapshot, publicSnapshot] = await Promise.all([
-    getDoc(privateRef),
-    getDoc(publicRef),
-  ]);
+  const discoverRef = doc(db, 'discoverProfiles', userId);
+  const legacyPublicRef = doc(db, 'publicProfiles', userId);
+  const [privateSnapshot, discoverSnapshot, legacyPublicSnapshot] =
+    await Promise.all([
+      getDoc(privateRef),
+      getDoc(discoverRef),
+      getDoc(legacyPublicRef),
+    ]);
 
   const createdAt =
     privateSnapshot.data()?.createdAt ||
-    publicSnapshot.data()?.createdAt ||
+    discoverSnapshot.data()?.createdAt ||
+    legacyPublicSnapshot.data()?.createdAt ||
     nowIso();
   const updatedAt = nowIso();
   const nextPrivateProfile = {
     ...(privateSnapshot.data() || {}),
     userId,
+    discoverVisible:
+      payload.discoverVisible ??
+      privateSnapshot.data()?.discoverVisible ??
+      false,
     ...payload,
-    createdAt,
-    updatedAt,
-  };
-  const nextPublicProfile = {
-    ...pickProfileFields(nextPrivateProfile, PUBLIC_PROFILE_FIELDS),
     createdAt,
     updatedAt,
   };
 
   const batch = writeBatch(db);
   batch.set(privateRef, nextPrivateProfile, { merge: true });
-  batch.set(publicRef, nextPublicProfile, { merge: true });
+
+  if (
+    nextPrivateProfile.questionnaireCompleted &&
+    nextPrivateProfile.discoverVisible
+  ) {
+    const discoverCreatedAt =
+      discoverSnapshot.data()?.createdAt ||
+      legacyPublicSnapshot.data()?.createdAt ||
+      createdAt;
+
+    batch.set(
+      discoverRef,
+      buildDiscoverProfile(
+        nextPrivateProfile,
+        discoverCreatedAt,
+        updatedAt,
+      ),
+      { merge: true },
+    );
+  } else {
+    batch.delete(discoverRef);
+  }
+
+  if (legacyPublicSnapshot.exists()) {
+    batch.delete(legacyPublicRef);
+  }
+
   await batch.commit();
 }
 
@@ -86,12 +157,127 @@ export async function saveQuestionnaireDraft(userId, payload) {
   );
 }
 
-export async function createTeam(payload) {
-  return addDoc(collection(db, 'teams'), {
-    ...payload,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
+export async function createTeamWithInvites({
+  name,
+  description,
+  goal,
+  creatorProfile,
+  invitedProfiles = [],
+}) {
+  const timestamp = nowIso();
+  const teamRef = doc(collection(db, 'teams'));
+  const creatorSnapshot = buildMemberSnapshot(creatorProfile);
+  const uniqueInvitedProfiles = invitedProfiles.filter(
+    (item, index, items) =>
+      item.userId !== creatorProfile.userId &&
+      items.findIndex((candidate) => candidate.userId === item.userId) === index,
+  );
+
+  const batch = writeBatch(db);
+  batch.set(teamRef, {
+    name,
+    description,
+    goal,
+    createdBy: creatorProfile.userId,
+    memberIds: [creatorProfile.userId],
+    memberSnapshots: [creatorSnapshot],
+    analysis: buildTeamAnalysis([creatorSnapshot]),
+    createdAt: timestamp,
+    updatedAt: timestamp,
   });
+
+  uniqueInvitedProfiles.forEach((profile) => {
+    const inviteRef = doc(db, 'teamInvites', `${teamRef.id}_${profile.userId}`);
+    batch.set(inviteRef, {
+      teamId: teamRef.id,
+      teamName: name,
+      teamDescription: description,
+      teamGoal: goal,
+      fromUid: creatorProfile.userId,
+      fromName: creatorProfile.name,
+      fromAvatarInitials: creatorProfile.avatarInitials,
+      toUid: profile.userId,
+      toName: profile.name,
+      toAvatarInitials: profile.avatarInitials,
+      status: 'pending',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  });
+
+  await batch.commit();
+  return teamRef.id;
+}
+
+export async function acceptTeamInvite(inviteId, profile) {
+  const inviteRef = doc(db, 'teamInvites', inviteId);
+  const inviteSnapshot = await getDoc(inviteRef);
+
+  if (!inviteSnapshot.exists()) {
+    throw new Error('Invite not found');
+  }
+
+  const invite = inviteSnapshot.data();
+  const teamRef = doc(db, 'teams', invite.teamId);
+  const teamSnapshot = await getDoc(teamRef);
+
+  if (!teamSnapshot.exists()) {
+    throw new Error('Team not found');
+  }
+
+  const team = teamSnapshot.data();
+  const currentMemberSnapshots = team.memberSnapshots || [];
+  const ownSnapshot = buildMemberSnapshot(profile);
+  const nextMemberSnapshots = [
+    ...currentMemberSnapshots.filter((item) => item.userId !== profile.userId),
+    ownSnapshot,
+  ];
+  const nextMemberIds = Array.from(
+    new Set([...(team.memberIds || []), profile.userId]),
+  );
+  const updatedAt = nowIso();
+  const batch = writeBatch(db);
+
+  batch.set(
+    teamRef,
+    {
+      memberIds: nextMemberIds,
+      memberSnapshots: nextMemberSnapshots,
+      analysis: buildTeamAnalysis(nextMemberSnapshots),
+      updatedAt,
+    },
+    { merge: true },
+  );
+  batch.set(
+    inviteRef,
+    {
+      status: 'accepted',
+      respondedAt: updatedAt,
+      updatedAt,
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
+}
+
+export async function declineTeamInvite(inviteId) {
+  const inviteRef = doc(db, 'teamInvites', inviteId);
+  const inviteSnapshot = await getDoc(inviteRef);
+
+  if (!inviteSnapshot.exists()) {
+    throw new Error('Invite not found');
+  }
+
+  await setDoc(
+    inviteRef,
+    {
+      status: 'declined',
+      respondedAt: nowIso(),
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
 }
 
 export async function saveMatchDecision(payload) {
@@ -123,6 +309,21 @@ export function subscribeOwnMatchDecisions(userId, callback, onError) {
   const matchQuery = query(
     collection(db, 'matchActions'),
     where('fromUid', '==', userId),
+  );
+
+  return onSnapshot(
+    matchQuery,
+    (snapshot) => {
+      callback(snapshot.docs.map((item) => item.data()));
+    },
+    onError,
+  );
+}
+
+export function subscribeIncomingMatchDecisions(userId, callback, onError) {
+  const matchQuery = query(
+    collection(db, 'matchActions'),
+    where('toUid', '==', userId),
   );
 
   return onSnapshot(

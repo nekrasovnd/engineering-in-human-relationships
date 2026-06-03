@@ -65,26 +65,30 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!user || !profile?.questionnaireCompleted) {
+    if (
+      !user ||
+      !profile?.questionnaireCompleted ||
+      !profile?.discoverVisible
+    ) {
       return;
     }
 
     let cancelled = false;
 
-    const ensurePublicProfile = async () => {
-      const publicSnapshot = await getDoc(doc(db, 'publicProfiles', user.uid));
+    const ensureDiscoverProfile = async () => {
+      const discoverSnapshot = await getDoc(doc(db, 'discoverProfiles', user.uid));
 
-      if (!cancelled && !publicSnapshot.exists()) {
+      if (!cancelled && !discoverSnapshot.exists()) {
         await saveProfile(user.uid, {});
       }
     };
 
-    ensurePublicProfile().catch(() => {});
+    ensureDiscoverProfile().catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, [profile?.questionnaireCompleted, user]);
+  }, [profile?.discoverVisible, profile?.questionnaireCompleted, user]);
 
   const value = useMemo(
     () => ({

@@ -9,6 +9,67 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function hasCurrentUserProfile() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/profiles/$(request.auth.uid));
+    }
+
+    function currentUserProfile() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid));
+    }
+
+    function canBrowseDiscover() {
+      return hasCurrentUserProfile()
+        && currentUserProfile().data.questionnaireCompleted == true
+        && currentUserProfile().data.discoverVisible == true;
+    }
+
+    function validDiscoverProfileWrite(userId) {
+      return request.resource.data.keys().hasOnly([
+          'userId',
+          'name',
+          'age',
+          'gender',
+          'avatarInitials',
+          'factorScores',
+          'egoState',
+          'questionnaireCompleted',
+          'discoverVisible',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userId == userId
+        && request.resource.data.questionnaireCompleted == true
+        && request.resource.data.discoverVisible == true;
+    }
+
+    function pendingInvite(teamId) {
+      return get(
+        /databases/$(database)/documents/teamInvites/$(teamId + "_" + request.auth.uid)
+      );
+    }
+
+    function canAcceptInvite(teamId) {
+      let invite = pendingInvite(teamId);
+      return invite.data != null
+        && invite.data.status == 'pending'
+        && invite.data.toUid == request.auth.uid
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.goal == resource.data.goal
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['memberIds', 'memberSnapshots', 'analysis', 'updatedAt']);
+    }
+
     match /profiles/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
@@ -17,21 +78,81 @@ service cloud.firestore {
     }
 
     match /publicProfiles/{userId} {
-      allow read: if isSignedIn();
+      allow read, create, update: if false;
+      allow delete: if isOwner(userId);
+    }
+
+    match /discoverProfiles/{userId} {
+      allow read: if isOwner(userId) || canBrowseDiscover();
       allow create, update: if isOwner(userId)
-        && request.resource.data.userId == request.auth.uid;
-      allow delete: if false;
+        && validDiscoverProfileWrite(userId);
+      allow delete: if isOwner(userId);
     }
 
     match /teams/{teamId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.memberIds;
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
-        && request.auth.uid in request.resource.data.memberIds;
+        && request.resource.data.memberIds.size() == 1
+        && request.resource.data.memberIds[0] == request.auth.uid;
       allow update: if isSignedIn()
-        && request.auth.uid in resource.data.memberIds
-        && request.auth.uid in request.resource.data.memberIds;
+        && (
+          (request.auth.uid in resource.data.memberIds
+            && request.auth.uid in request.resource.data.memberIds)
+          || canAcceptInvite(teamId)
+        );
       allow delete: if isSignedIn() && request.auth.uid == resource.data.createdBy;
+    }
+
+    match /teamInvites/{inviteId} {
+      allow read: if isSignedIn()
+        && (
+          resource.data.fromUid == request.auth.uid
+          || resource.data.toUid == request.auth.uid
+        );
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'teamId',
+          'teamName',
+          'teamDescription',
+          'teamGoal',
+          'fromUid',
+          'fromName',
+          'fromAvatarInitials',
+          'toUid',
+          'toName',
+          'toAvatarInitials',
+          'status',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && getAfter(
+          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
+        ).data.createdBy == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.toUid == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toUid == resource.data.toUid
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.teamName == resource.data.teamName
+        && request.resource.data.teamDescription == resource.data.teamDescription
+        && request.resource.data.teamGoal == resource.data.teamGoal
+        && request.resource.data.fromName == resource.data.fromName
+        && request.resource.data.fromAvatarInitials == resource.data.fromAvatarInitials
+        && request.resource.data.toName == resource.data.toName
+        && request.resource.data.toAvatarInitials == resource.data.toAvatarInitials
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['status', 'respondedAt', 'updatedAt']);
+      allow delete: if false;
     }
 
     match /matchActions/{actionId} {
