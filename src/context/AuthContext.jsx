@@ -14,7 +14,12 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import {
+  calculateQuestionnaireResult,
+  enrichProfileScoring,
+} from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
+import { buildProfileNarrative } from '../utils/profileAnalysis';
 
 const AuthContext = createContext(null);
 
@@ -46,7 +51,9 @@ export function AuthProvider({ children }) {
       unsubscribeProfile = onSnapshot(
         doc(db, 'profiles', nextUser.uid),
         (snapshot) => {
-          setProfile(snapshot.exists() ? snapshot.data() : null);
+          setProfile(
+            snapshot.exists() ? enrichProfileScoring(snapshot.data()) : null,
+          );
           setLoading(false);
         },
         () => {
@@ -89,6 +96,45 @@ export function AuthProvider({ children }) {
       cancelled = true;
     };
   }, [profile?.discoverVisible, profile?.questionnaireCompleted, user]);
+
+  useEffect(() => {
+    if (
+      !user ||
+      !profile?.questionnaireCompleted ||
+      !profile?.answers ||
+      (profile.factorReliability &&
+        profile.systemIndices &&
+        typeof profile.profileIntegrity === 'number')
+    ) {
+      return;
+    }
+
+    const migrateProfileModel = async () => {
+      const result = calculateQuestionnaireResult(profile.answers);
+      const nextProfile = {
+        ...profile,
+        factorScores: result.factorScores,
+        factorReliability: result.factorReliability,
+        egoState: result.egoState,
+        systemIndices: result.systemIndices,
+        profileIntegrity: result.profileIntegrity,
+        psychologicalVector50: result.psychologicalVector50,
+      };
+
+      await saveProfile(user.uid, {
+        factorScores: result.factorScores,
+        factorReliability: result.factorReliability,
+        egoState: result.egoState,
+        systemIndices: result.systemIndices,
+        profileIntegrity: result.profileIntegrity,
+        psychologicalVector50: result.psychologicalVector50,
+        profileNarrative: buildProfileNarrative(nextProfile),
+      });
+    };
+
+    migrateProfileModel().catch(() => {});
+    return undefined;
+  }, [profile, user]);
 
   const value = useMemo(
     () => ({

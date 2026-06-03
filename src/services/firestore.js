@@ -23,7 +23,10 @@ const DISCOVER_PROFILE_FIELDS = [
   'gender',
   'avatarInitials',
   'factorScores',
+  'factorReliability',
   'egoState',
+  'systemIndices',
+  'profileIntegrity',
   'questionnaireCompleted',
   'discoverVisible',
 ];
@@ -45,6 +48,9 @@ function buildMemberSnapshot(profile) {
     avatarInitials: profile.avatarInitials,
     egoState: profile.egoState,
     factorScores: profile.factorScores,
+    factorReliability: profile.factorReliability,
+    systemIndices: profile.systemIndices,
+    profileIntegrity: profile.profileIntegrity,
   };
 }
 

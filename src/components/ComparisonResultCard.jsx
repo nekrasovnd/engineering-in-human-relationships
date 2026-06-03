@@ -81,6 +81,44 @@ export default function ComparisonResultCard({
             </div>
           </div>
 
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                Контур связи
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {Math.round(comparison.resonanceScore)}%
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Насколько легко вам держать общий ритм общения, ожидания и стиль обратной связи.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                Резерв пары
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {Math.round(comparison.pairReserveScore)}%
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Запас устойчивости к стрессу, неопределённости и трению до явного конфликта.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                Надёжность профилей
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {Math.round(comparison.reliabilityScore)}%
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Показывает, насколько согласованно у вас заполнены сами шкалы, а не только итоговые баллы.
+              </p>
+            </div>
+          </div>
+
           <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
               Рекомендация по управлению

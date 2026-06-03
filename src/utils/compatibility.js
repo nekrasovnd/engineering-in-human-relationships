@@ -1,3 +1,5 @@
+import { buildSystemIndices, FACTOR_KEYS } from '../data/questionnaire';
+
 const WEIGHTS = {
   neuroticism: 2,
   extraversion: 1,
@@ -15,6 +17,37 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function getProfileIntegrity(profile) {
+  if (typeof profile.profileIntegrity === 'number') {
+    return profile.profileIntegrity;
+  }
+
+  if (profile.factorReliability) {
+    return Number(
+      (
+        FACTOR_KEYS.reduce(
+          (sum, key) => sum + (profile.factorReliability[key] ?? 7),
+          0,
+        ) / FACTOR_KEYS.length
+      ).toFixed(1),
+    );
+  }
+
+  return 7;
+}
+
+function getSystemIndices(profile) {
+  if (profile.systemIndices) {
+    return profile.systemIndices;
+  }
+
+  return buildSystemIndices(profile.factorScores, profile.factorReliability);
+}
+
+function getGap(firstValue, secondValue) {
+  return Math.abs(firstValue - secondValue);
+}
+
 export function calculateCompatibility(firstProfile, secondProfile) {
   const weightedDistance = Math.sqrt(
     FACTOR_ORDER.reduce((sum, key) => {
@@ -28,29 +61,101 @@ export function calculateCompatibility(firstProfile, secondProfile) {
     FACTOR_ORDER.reduce((sum, key) => sum + 100 * WEIGHTS[key], 0),
   );
 
+  const distanceScore = clamp((1 - weightedDistance / maxDistance) * 100, 0, 100);
+  const firstIndices = getSystemIndices(firstProfile);
+  const secondIndices = getSystemIndices(secondProfile);
+  const communicationGap =
+    (getGap(
+      firstProfile.factorScores.extraversion,
+      secondProfile.factorScores.extraversion,
+    ) +
+      getGap(
+        firstProfile.factorScores.feedbackNeed,
+        secondProfile.factorScores.feedbackNeed,
+      ) +
+      getGap(
+        firstProfile.factorScores.empathy,
+        secondProfile.factorScores.empathy,
+      )) /
+    3;
+  const structureGap =
+    (getGap(
+      firstProfile.factorScores.dominance,
+      secondProfile.factorScores.dominance,
+    ) +
+      getGap(
+        firstProfile.factorScores.ruleAdaptation,
+        secondProfile.factorScores.ruleAdaptation,
+      )) /
+    2;
+  const stressGap =
+    (getGap(
+      firstProfile.factorScores.neuroticism,
+      secondProfile.factorScores.neuroticism,
+    ) +
+      getGap(
+        firstProfile.factorScores.stressResponse,
+        secondProfile.factorScores.stressResponse,
+      ) +
+      getGap(
+        firstProfile.factorScores.cooperation,
+        secondProfile.factorScores.cooperation,
+      )) /
+    3;
+  const resonanceScore = clamp(
+    100 - communicationGap * 3.5 - structureGap * 3 - stressGap * 3.5,
+    0,
+    100,
+  );
+  const pairReserveScore = clamp(
+    ((firstIndices.teamStabilityReserve + secondIndices.teamStabilityReserve) /
+      2) *
+      5 +
+      ((firstIndices.communicationClarity + secondIndices.communicationClarity) /
+        2) *
+        3 +
+      ((firstIndices.autonomyBalance + secondIndices.autonomyBalance) / 2) *
+        2,
+    0,
+    100,
+  );
+  const reliabilityScore =
+    ((getProfileIntegrity(firstProfile) + getProfileIntegrity(secondProfile)) /
+      20) *
+    100;
   const compatibility = Math.round(
-    clamp((1 - weightedDistance / maxDistance) * 100, 0, 100),
+    clamp(
+      distanceScore * 0.55 +
+        resonanceScore * 0.25 +
+        pairReserveScore * 0.15 +
+        reliabilityScore * 0.05,
+      0,
+      100,
+    ),
   );
 
   const highConflict =
-    Math.abs(
-      firstProfile.factorScores.neuroticism -
-        secondProfile.factorScores.neuroticism,
+    getGap(
+      firstProfile.factorScores.neuroticism,
+      secondProfile.factorScores.neuroticism,
     ) > 4 ||
     (firstProfile.factorScores.dominance > 7 &&
-      secondProfile.factorScores.dominance > 7);
+      secondProfile.factorScores.dominance > 7) ||
+    stressGap > 5.8;
 
   const mediumConflict =
     !highConflict &&
     (compatibility < 60 ||
-      Math.abs(
-        firstProfile.factorScores.stressResponse -
-          secondProfile.factorScores.stressResponse,
+      getGap(
+        firstProfile.factorScores.stressResponse,
+        secondProfile.factorScores.stressResponse,
       ) > 4 ||
-      Math.abs(
-        firstProfile.factorScores.cooperation -
-          secondProfile.factorScores.cooperation,
-      ) > 4);
+      getGap(
+        firstProfile.factorScores.cooperation,
+        secondProfile.factorScores.cooperation,
+      ) > 4 ||
+      structureGap > 4 ||
+      pairReserveScore < 58);
 
   const conflictRisk = highConflict
     ? 'Высокий'
@@ -69,11 +174,27 @@ export function calculateCompatibility(firstProfile, secondProfile) {
     firstProfile,
     secondProfile,
     conflictRisk,
+    {
+      communicationGap,
+      structureGap,
+      stressGap,
+      pairReserveScore,
+      reliabilityScore,
+      distanceScore,
+      resonanceScore,
+    },
   );
 
   return {
     compatibility,
     weightedDistance: Number(weightedDistance.toFixed(2)),
+    distanceScore: Number(distanceScore.toFixed(1)),
+    resonanceScore: Number(resonanceScore.toFixed(1)),
+    pairReserveScore: Number(pairReserveScore.toFixed(1)),
+    reliabilityScore: Number(reliabilityScore.toFixed(1)),
+    communicationGap: Number(communicationGap.toFixed(2)),
+    structureGap: Number(structureGap.toFixed(2)),
+    stressGap: Number(stressGap.toFixed(2)),
     conflictRisk,
     verdict,
     explanation,
@@ -84,6 +205,7 @@ export function buildManagementRecommendation(
   firstProfile,
   secondProfile,
   conflictRisk,
+  metrics = {},
 ) {
   const pair = `${firstProfile.name} (${firstProfile.egoState}) и ${secondProfile.name} (${secondProfile.egoState})`;
   const notes = [];
@@ -130,6 +252,34 @@ export function buildManagementRecommendation(
   if (conflictRisk === 'Высокий') {
     notes.push(
       'Рабочее взаимодействие возможно только при заранее прописанных правилах эскалации, буферах времени и понятных границах решений.',
+    );
+  }
+
+  if (
+    metrics.communicationGap >= metrics.structureGap &&
+    metrics.communicationGap >= metrics.stressGap &&
+    metrics.communicationGap > 3.5
+  ) {
+    notes.push(
+      'Главный риск здесь не в ценностях, а в контуре связи: заранее задайте ритм коротких синков, формат обратной связи и допустимую задержку ответа.',
+    );
+  } else if (
+    metrics.structureGap >= metrics.communicationGap &&
+    metrics.structureGap >= metrics.stressGap &&
+    metrics.structureGap > 3.5
+  ) {
+    notes.push(
+      'Главное трение ожидается вокруг правил и права принимать решения. Лучше сразу развести роли, границы полномочий и способ финального выбора.',
+    );
+  } else if (metrics.stressGap > 3.5) {
+    notes.push(
+      'Под нагрузкой вы можете расходиться сильнее, чем в обычной работе. Полезны буферы по срокам, явные точки эскалации и правило паузы перед жёстким ответом.',
+    );
+  }
+
+  if (metrics.pairReserveScore < 55) {
+    notes.push(
+      'У пары низкий запас устойчивости: без внешней структуры и договорённостей даже обычная неопределённость будет быстро накапливать напряжение.',
     );
   }
 

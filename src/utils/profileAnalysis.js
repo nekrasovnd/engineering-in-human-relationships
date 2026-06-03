@@ -46,6 +46,7 @@ function pickHighlights(scores) {
 export function buildProfileNarrative(profile) {
   const scores = profile.factorScores;
   const { strengths, risks } = pickHighlights(scores);
+  const profileIntegrity = profile.profileIntegrity ?? 7;
 
   const teamPredictionParts = [];
 
@@ -78,6 +79,12 @@ export function buildProfileNarrative(profile) {
   if (scores.feedbackNeed >= HIGH) {
     teamPredictionParts.push(
       'Для устойчивой продуктивности полезны короткие регулярные чек-ины и конкретная обратная связь по ходу работы.',
+    );
+  }
+
+  if (profileIntegrity <= 5.5) {
+    teamPredictionParts.push(
+      'Ответы внутри нескольких шкал выглядят неоднородно, поэтому этот профиль лучше читать как рабочую гипотезу, а не как жёсткий ярлык.',
     );
   }
 

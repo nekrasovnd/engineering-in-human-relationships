@@ -1,4 +1,5 @@
 const likertToTen = (value) => ((Number(value) - 1) / 4) * 10;
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export const FACTOR_CONFIG = [
   {
@@ -286,15 +287,23 @@ export function getDisplayFactorScore(factorKey, score) {
   return Number(nextScore.toFixed(1));
 }
 
-export function buildPsychologicalVector50(answers, factorScores) {
-  const normalizedAnswers = FACTOR_CONFIG.flatMap((factor) => factor.questions).map(
-    (question) => {
-      const raw = likertToTen(answers[question.id] || 3);
-      return Number((question.reverse ? 10 - raw : raw).toFixed(1));
-    },
-  );
+function getAlignedQuestionScore(question, answerValue) {
+  const rawScore = likertToTen(answerValue || 3);
+  return question.reverse ? 10 - rawScore : rawScore;
+}
 
-  const factorVector = FACTOR_KEYS.map((key) => Number(factorScores[key].toFixed(1)));
+function calculateFactorReliability(alignedScores) {
+  const average =
+    alignedScores.reduce((sum, score) => sum + score, 0) / alignedScores.length;
+  const variance =
+    alignedScores.reduce((sum, score) => sum + (score - average) ** 2, 0) /
+    alignedScores.length;
+  const spread = Math.sqrt(variance);
+
+  return Number(clamp(10 - spread * 2, 0, 10).toFixed(1));
+}
+
+export function buildSystemIndices(factorScores, factorReliability = {}) {
   const conflictLoad = Number(
     (
       factorScores.neuroticism * 0.45 +
@@ -310,6 +319,52 @@ export function buildPsychologicalVector50(answers, factorScores) {
       factorScores.cooperation * 0.2
     ).toFixed(1),
   );
+  const communicationClarity = Number(
+    (
+      factorScores.empathy * 0.3 +
+      factorScores.cooperation * 0.2 +
+      (10 - Math.abs(factorScores.extraversion - factorScores.feedbackNeed)) *
+        0.25 +
+      (10 - factorScores.neuroticism) * 0.25
+    ).toFixed(1),
+  );
+  const autonomyBalance = Number(
+    (
+      (10 - Math.abs(factorScores.dominance - 5)) * 0.35 +
+      factorScores.ruleAdaptation * 0.35 +
+      factorScores.stressResponse * 0.2 +
+      factorScores.cooperation * 0.1
+    ).toFixed(1),
+  );
+  const profileIntegrity = Number(
+    (
+      FACTOR_KEYS.reduce(
+        (sum, key) => sum + (factorReliability[key] ?? 7),
+        0,
+      ) / FACTOR_KEYS.length
+    ).toFixed(1),
+  );
+
+  return {
+    conflictLoad,
+    teamStabilityReserve,
+    communicationClarity,
+    autonomyBalance,
+    profileIntegrity,
+  };
+}
+
+export function buildPsychologicalVector50(answers, factorScores) {
+  const normalizedAnswers = FACTOR_CONFIG.flatMap((factor) => factor.questions).map(
+    (question) => {
+      return Number(
+        getAlignedQuestionScore(question, answers[question.id]).toFixed(1),
+      );
+    },
+  );
+
+  const factorVector = FACTOR_KEYS.map((key) => Number(factorScores[key].toFixed(1)));
+  const { conflictLoad, teamStabilityReserve } = buildSystemIndices(factorScores);
 
   return [...normalizedAnswers, ...factorVector, conflictLoad, teamStabilityReserve];
 }
@@ -338,25 +393,74 @@ export function deriveEgoState(factorScores) {
 }
 
 export function calculateQuestionnaireResult(answers) {
-  const factorScores = FACTOR_CONFIG.reduce((accumulator, factor) => {
-    const scores = factor.questions.map((question) => {
-      const rawScore = likertToTen(answers[question.id] || 3);
-      return question.reverse ? 10 - rawScore : rawScore;
-    });
-    const average = scores.reduce((sum, item) => sum + item, 0) / factor.questions.length;
+  const factorScores = {};
+  const factorReliability = {};
 
-    return {
-      ...accumulator,
-      [factor.key]: Number(average.toFixed(1)),
-    };
-  }, {});
+  FACTOR_CONFIG.forEach((factor) => {
+    const alignedScores = factor.questions.map((question) =>
+      getAlignedQuestionScore(question, answers[question.id]),
+    );
+    const average =
+      alignedScores.reduce((sum, score) => sum + score, 0) / alignedScores.length;
+
+    factorScores[factor.key] = Number(average.toFixed(1));
+    factorReliability[factor.key] = calculateFactorReliability(alignedScores);
+  });
 
   const egoState = deriveEgoState(factorScores);
   const psychologicalVector50 = buildPsychologicalVector50(answers, factorScores);
+  const systemIndices = buildSystemIndices(factorScores, factorReliability);
 
   return {
     factorScores,
+    factorReliability,
     egoState,
+    systemIndices,
+    profileIntegrity: systemIndices.profileIntegrity,
     psychologicalVector50,
+  };
+}
+
+export function enrichProfileScoring(profile) {
+  if (!profile?.factorScores) {
+    return profile;
+  }
+
+  if (
+    profile.factorReliability &&
+    profile.systemIndices &&
+    typeof profile.profileIntegrity === 'number'
+  ) {
+    return profile;
+  }
+
+  if (profile.answers) {
+    const result = calculateQuestionnaireResult(profile.answers);
+
+    return {
+      ...profile,
+      factorScores: profile.factorScores || result.factorScores,
+      factorReliability: result.factorReliability,
+      egoState: profile.egoState || result.egoState,
+      systemIndices: result.systemIndices,
+      profileIntegrity: result.profileIntegrity,
+      psychologicalVector50:
+        profile.psychologicalVector50 || result.psychologicalVector50,
+    };
+  }
+
+  const systemIndices = buildSystemIndices(
+    profile.factorScores,
+    profile.factorReliability,
+  );
+
+  return {
+    ...profile,
+    factorReliability: profile.factorReliability || null,
+    systemIndices,
+    profileIntegrity:
+      typeof profile.profileIntegrity === 'number'
+        ? profile.profileIntegrity
+        : systemIndices.profileIntegrity,
   };
 }

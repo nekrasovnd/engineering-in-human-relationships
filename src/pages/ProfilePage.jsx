@@ -110,7 +110,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                   Показатели профиля
@@ -127,6 +127,17 @@ export default function ProfilePage() {
                 <p className="mt-2 text-3xl font-display text-white">100%</p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
                   анкета заполнена, все разделы доступны
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                  Согласованность
+                </p>
+                <p className="mt-2 text-3xl font-display text-white">
+                  {Math.round((profile.profileIntegrity ?? 7) * 10)}%
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  показывает, насколько ровно и непротиворечиво собраны ответы по шкалам
                 </p>
               </div>
             </div>

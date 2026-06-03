@@ -226,7 +226,10 @@ export default function QuestionnairePage() {
         avatarInitials: getInitials(baseForm.name),
         answers,
         factorScores: result.factorScores,
+        factorReliability: result.factorReliability,
         egoState: result.egoState,
+        systemIndices: result.systemIndices,
+        profileIntegrity: result.profileIntegrity,
         psychologicalVector50: result.psychologicalVector50,
         questionnaireCompleted: true,
       };
