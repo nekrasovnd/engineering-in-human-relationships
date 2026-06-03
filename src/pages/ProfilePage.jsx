@@ -164,7 +164,7 @@ export default function ProfilePage() {
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.14em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.18em]">
+                <p className="max-w-full break-words text-[11px] uppercase tracking-[0.08em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.12em]">
                   Показатели профиля
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">50</p>
@@ -173,7 +173,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.14em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.18em]">
+                <p className="max-w-full break-words text-[11px] uppercase tracking-[0.08em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.12em]">
                   Профиль готов
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">100%</p>
@@ -182,7 +182,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.14em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.18em]">
+                <p className="max-w-full break-words text-[11px] uppercase tracking-[0.08em] leading-5 text-slate-400 sm:text-xs sm:tracking-[0.12em]">
                   Согласованность
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">
