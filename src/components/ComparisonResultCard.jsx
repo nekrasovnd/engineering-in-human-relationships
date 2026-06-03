@@ -27,7 +27,7 @@ export default function ComparisonResultCard({
   return (
     <SectionCard
       title="Карточка совместимости"
-      subtitle="Коэффициент считается по весовому евклидову расстоянию: нейротизм и доминантность имеют двойной вес."
+      subtitle="Короткий разбор того, насколько вам будет комфортно взаимодействовать."
     >
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
@@ -87,9 +87,9 @@ export default function ComparisonResultCard({
         </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
-          <p className="font-display text-lg text-white">Подсказка от ТРИЗ</p>
+          <p className="font-display text-lg text-white">Подсказки</p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Принципы подбираются локально по типу противоречия между профилями.
+            Если между вами может возникнуть напряжение, здесь будут идеи, как его сгладить.
           </p>
 
           <button

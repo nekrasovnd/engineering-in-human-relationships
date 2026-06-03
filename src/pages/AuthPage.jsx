@@ -7,7 +7,7 @@ const featureCards = [
   {
     icon: BrainCircuit,
     title: 'Профиль из 8 шкал',
-    text: '40 вопросов формируют радарную карту, эго-состояние по Берну и вектор из 50 числовых параметров.',
+    text: '40 вопросов помогают собрать ваш профиль, сильные стороны и привычный стиль взаимодействия.',
   },
   {
     icon: HeartHandshake,
@@ -16,8 +16,8 @@ const featureCards = [
   },
   {
     icon: FlaskConical,
-    title: 'TRIZ-подсказки',
-    text: 'Инженерные принципы помогают переводить межличностные противоречия в управляемые решения.',
+    title: 'Подсказки для сложных ситуаций',
+    text: 'Если в общении или в команде есть напряжение, приложение подскажет, на что обратить внимание.',
   },
 ];
 
@@ -58,7 +58,7 @@ export default function AuthPage() {
       }
       navigate('/');
     } catch (requestError) {
-      setError('Не удалось выполнить авторизацию. Проверьте email, пароль и настройки Firebase Auth.');
+      setError('Не удалось выполнить вход. Проверьте email и пароль.');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function AuthPage() {
       await resetPassword(form.email.trim());
       setInfo('Письмо для сброса пароля отправлено. Проверьте входящие и папку "Спам".');
     } catch (requestError) {
-      setError('Не удалось отправить письмо для сброса. Проверьте email и настройки Firebase Auth.');
+      setError('Не удалось отправить письмо для сброса. Проверьте email и попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
@@ -95,9 +95,8 @@ export default function AuthPage() {
             Психологический профайлер для команд, совместимости и конфликтов.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-            Вдохновение — модели отбора людей для экстремальных сред. Здесь это
-            превращено в веб-приложение: опросник, совместимость, команды,
-            знакомства и база знаний ТРИЗ в одном интерфейсе.
+            Здесь можно пройти анкету, посмотреть свой профиль, сравнить
+            совместимость, собирать команды и находить подходящих людей.
           </p>
 
           <div className="mt-8 grid gap-4">
@@ -165,7 +164,7 @@ export default function AuthPage() {
             <div className="mt-8">
               <p className="font-display text-3xl text-white">{title}</p>
               <p className="mt-2 text-sm leading-7 text-slate-400">
-                Firebase Auth используется только для email/password входа.
+                Войдите в аккаунт или создайте новый.
               </p>
             </div>
 

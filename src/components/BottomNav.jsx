@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { to: '/profile', label: 'Профиль', icon: UserRound },
   { to: '/teams', label: 'Команды', icon: UsersRound },
   { to: '/discover', label: 'Знакомства', icon: Heart },
-  { to: '/knowledge', label: 'База', icon: LibraryBig },
+  { to: '/knowledge', label: 'Гид', icon: LibraryBig },
   { to: '/compare', label: 'Сравнить', icon: Scale },
 ];
 

@@ -1,4 +1,4 @@
-import { LogOut, ShieldCheck } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AvatarBadge from './AvatarBadge';
@@ -18,7 +18,7 @@ export default function AppShell() {
                 Engineering in Human Relationships
               </p>
               <p className="text-sm text-slate-400">
-                {profile?.name} · {profile?.egoState} · 8 шкал + TRIZ
+                {profile?.name} · {profile?.egoState}
               </p>
             </div>
           </div>
@@ -28,8 +28,7 @@ export default function AppShell() {
             onClick={signOutUser}
             className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white"
           >
-            <ShieldCheck className="h-4 w-4 text-blue-300" />
-            <span className="hidden sm:inline">Защищённый сеанс</span>
+            <span className="hidden sm:inline">Выйти</span>
             <LogOut className="h-4 w-4" />
           </button>
         </div>

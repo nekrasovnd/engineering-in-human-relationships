@@ -5,7 +5,7 @@ export default function LoadingScreen({ label = 'Загрузка...' }) {
         <div className="mx-auto mb-4 h-14 w-14 animate-pulse rounded-full border border-blue-400/40 bg-blue-500/20" />
         <p className="font-display text-xl text-white">{label}</p>
         <p className="mt-2 text-sm text-slate-400">
-          Психологическая карта и Firestore уже рядом.
+          Ещё немного, всё загружается.
         </p>
       </div>
     </div>

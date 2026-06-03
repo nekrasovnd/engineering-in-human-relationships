@@ -9,15 +9,15 @@ export default function KnowledgeBasePage() {
   return (
     <div className="space-y-6">
       <SectionCard
-        title="База знаний: ТРИЗ + инженерные аналогии"
-        subtitle="Вся база сгенерирована и вшита в код приложения. Внешние книги и файлы не нужны."
+        title="Гид по общению и совместимости"
+        subtitle="Здесь собраны идеи и приёмы, которые помогают лучше понимать себя, других и конфликтные ситуации."
       >
         <input
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
-          placeholder="Поиск по принципам, противоречиям, ролям и конфликтам"
+          placeholder="Поиск по темам, ролям, конфликтам и приёмам"
         />
       </SectionCard>
 
@@ -35,7 +35,7 @@ export default function KnowledgeBasePage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="40 приёмов разрешения противоречий">
+      <SectionCard title="Приёмы для разрешения противоречий">
         <div className="grid gap-4 xl:grid-cols-2">
           {knowledge.principles.map((principle) => (
             <div
@@ -72,7 +72,7 @@ export default function KnowledgeBasePage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Примеры применения принципов ТРИЗ к командам">
+      <SectionCard title="Примеры для команд">
         <div className="grid gap-4 md:grid-cols-2">
           {knowledge.teamExamples.map((item) => (
             <div

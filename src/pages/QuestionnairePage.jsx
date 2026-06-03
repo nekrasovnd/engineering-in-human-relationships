@@ -245,7 +245,7 @@ export default function QuestionnairePage() {
       navigate('/profile');
     } catch {
       setError(
-        'Не удалось сохранить профиль. Проверьте Firestore rules и конфигурацию Firebase.',
+        'Не удалось сохранить профиль. Попробуйте ещё раз.',
       );
     } finally {
       setSaving(false);

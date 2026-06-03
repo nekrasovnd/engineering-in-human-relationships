@@ -102,7 +102,7 @@ export default function DiscoverPage() {
 
       setCurrentIndex((index) => index + 1);
     } catch (requestError) {
-      setDecisionError('Не удалось сохранить решение. Проверьте Firestore rules.');
+      setDecisionError('Не удалось сохранить решение. Попробуйте ещё раз.');
     } finally {
       setBusyId('');
     }

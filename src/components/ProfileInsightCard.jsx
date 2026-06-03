@@ -7,7 +7,7 @@ export default function ProfileInsightCard({ profile }) {
   return (
     <SectionCard
       title="Психологический разбор"
-      subtitle="Текстовый вывод имитирует заключение аналитического ассистента и опирается только на локальные вычисления."
+      subtitle="Короткий разбор по вашим ответам."
     >
       <p className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm leading-7 text-slate-200">
         {narrative.summary}

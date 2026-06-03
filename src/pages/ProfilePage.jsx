@@ -79,7 +79,7 @@ export default function ProfilePage() {
 
       <SectionCard
         title="Мой профиль"
-        subtitle="Здесь собрана персональная карта по 8 шкалам, производный ego-state и текстовая интерпретация."
+        subtitle="Здесь собраны ваши результаты и основные данные."
         action={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -111,20 +111,20 @@ export default function ProfilePage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Вектор профиля
+                  Показатели профиля
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">50</p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
-                  числовых параметров сохранено в приватном профиле Firestore
+                  параметров учитываются в итоговом профиле
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Готовность профиля
+                  Профиль готов
                 </p>
                 <p className="mt-2 text-3xl font-display text-white">100%</p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
-                  опросник завершён и другие разделы открыты
+                  анкета заполнена, все разделы доступны
                 </p>
               </div>
             </div>
@@ -224,7 +224,7 @@ export default function ProfilePage() {
 
       <SectionCard
         title="8 факторов"
-        subtitle="Каждая шкала считается как среднее по пяти вопросам и нормируется в диапазон 0–10."
+        subtitle="Каждая шкала показывает, насколько выражено качество по вашим ответам."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {FACTOR_CONFIG.map((factor) => (

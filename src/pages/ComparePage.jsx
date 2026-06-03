@@ -23,7 +23,7 @@ export default function ComparePage() {
     <div className="space-y-6">
       <SectionCard
         title="Сравнение пользователей"
-        subtitle="Выберите другого пользователя из Firestore и получите карточку совместимости, риск конфликта и рекомендацию по управлению."
+        subtitle="Выберите человека и посмотрите совместимость, риск конфликта и рекомендации."
       >
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">

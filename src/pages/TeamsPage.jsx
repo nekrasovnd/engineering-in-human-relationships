@@ -132,7 +132,7 @@ export default function TeamsPage() {
         memberIds: [profile.userId],
       });
     } catch {
-      setError('Не удалось создать команду. Проверьте Firestore rules.');
+      setError('Не удалось создать команду. Попробуйте ещё раз.');
     } finally {
       setSaving(false);
     }
@@ -142,7 +142,7 @@ export default function TeamsPage() {
     <div className="space-y-6">
       <SectionCard
         title="Команды"
-        subtitle="Создавайте рабочие, семейные или личные группы. Для каждой команды рассчитывается конфликтная пара и предлагаются роли."
+        subtitle="Создавайте группы и смотрите, как участники сочетаются между собой."
       >
         <form
           className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"
@@ -274,7 +274,7 @@ export default function TeamsPage() {
 
       <SectionCard
         title="Мои команды"
-        subtitle="Команды подгружаются из Firestore только для тех пользователей, которые входят в состав."
+        subtitle="Здесь собраны команды, в которых вы участвуете."
       >
         {teamsLoading ? (
           <p className="text-sm text-slate-400">Загружаем команды...</p>
