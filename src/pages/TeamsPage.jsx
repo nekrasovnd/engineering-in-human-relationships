@@ -75,6 +75,10 @@ export default function TeamsPage() {
   const [copyFailedForTeamId, setCopyFailedForTeamId] = useState('');
   const [codeInviteError, setCodeInviteError] = useState('');
   const [codeInviteSuccess, setCodeInviteSuccess] = useState('');
+  const [inviteActionError, setInviteActionError] = useState({
+    inviteId: '',
+    message: '',
+  });
   const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -147,6 +151,7 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
@@ -185,12 +190,16 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
 
     try {
       setRespondingInviteId(inviteId);
       await acceptTeamInvite(inviteId, profile);
     } catch {
-      setError('Не удалось принять приглашение.');
+      setInviteActionError({
+        inviteId,
+        message: 'Не удалось принять приглашение.',
+      });
     } finally {
       setRespondingInviteId('');
     }
@@ -201,12 +210,16 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
 
     try {
       setRespondingInviteId(inviteId);
       await declineTeamInvite(inviteId);
     } catch {
-      setError('Не удалось отклонить приглашение.');
+      setInviteActionError({
+        inviteId,
+        message: 'Не удалось отклонить приглашение.',
+      });
     } finally {
       setRespondingInviteId('');
     }
@@ -217,6 +230,7 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
 
     if (!codeInviteValue.trim()) {
       setCodeInviteError('Введите код приглашения.');
@@ -254,6 +268,7 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
 
     try {
       setGeneratingCodeForTeamId(team.id);
@@ -271,6 +286,7 @@ export default function TeamsPage() {
     setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
+    setInviteActionError({ inviteId: '', message: '' });
     setCopiedCodeForTeamId('');
     setCopyFailedForTeamId('');
 
@@ -515,6 +531,11 @@ export default function TeamsPage() {
                 <p className="mt-3 text-sm text-slate-400">
                   Пригласил: {invite.fromName}
                 </p>
+                {inviteActionError.inviteId === invite.id ? (
+                  <div className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {inviteActionError.message}
+                  </div>
+                ) : null}
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     type="button"

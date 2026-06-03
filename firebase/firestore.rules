@@ -135,6 +135,13 @@ service cloud.firestore {
           .hasOnly(['memberIds', 'memberSnapshots', 'analysis', 'updatedAt']);
     }
 
+    function canReadInvitedTeam(teamId) {
+      let invite = pendingInvite(teamId);
+      return invite.data != null
+        && invite.data.status == 'pending'
+        && invite.data.toUid == request.auth.uid;
+    }
+
     match /profiles/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
@@ -156,7 +163,10 @@ service cloud.firestore {
 
     match /teams/{teamId} {
       allow read: if isSignedIn()
-        && request.auth.uid in resource.data.memberIds;
+        && (
+          request.auth.uid in resource.data.memberIds
+          || canReadInvitedTeam(teamId)
+        );
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.memberIds.size() == 1
