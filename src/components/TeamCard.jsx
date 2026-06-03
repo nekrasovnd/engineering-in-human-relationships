@@ -57,7 +57,11 @@ export default function TeamCard({ team, memberProfiles }) {
                 className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"
               >
                 <div className="mb-4 flex items-center gap-3">
-                  <AvatarBadge initials={member.avatarInitials} size="sm" />
+                  <AvatarBadge
+                    initials={member.avatarInitials}
+                    imageUrl={member.avatarUrl}
+                    size="sm"
+                  />
                   <div>
                     <p className="font-medium text-white">{member.name}</p>
                     <p className="text-sm text-slate-400">

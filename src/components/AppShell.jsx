@@ -13,7 +13,11 @@ export default function AppShell() {
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <AvatarBadge initials={profile?.avatarInitials} size="sm" />
+            <AvatarBadge
+              initials={profile?.avatarInitials}
+              imageUrl={profile?.avatarUrl}
+              size="sm"
+            />
             <div>
               <p className="font-display text-lg text-white">
                 Engineering in Human Relationships

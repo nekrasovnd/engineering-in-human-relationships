@@ -48,7 +48,11 @@ export default function ComparisonResultCard({
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-3">
-              <AvatarBadge initials={firstProfile.avatarInitials} size="sm" />
+              <AvatarBadge
+                initials={firstProfile.avatarInitials}
+                imageUrl={firstProfile.avatarUrl}
+                size="sm"
+              />
               <div>
                 <p className="font-medium text-white">{firstProfile.name}</p>
                 <p className="text-sm text-slate-400">
@@ -60,7 +64,11 @@ export default function ComparisonResultCard({
             <div className="text-slate-500">×</div>
 
             <div className="flex items-center gap-3">
-              <AvatarBadge initials={secondProfile.avatarInitials} size="sm" />
+              <AvatarBadge
+                initials={secondProfile.avatarInitials}
+                imageUrl={secondProfile.avatarUrl}
+                size="sm"
+              />
               <div>
                 <p className="font-medium text-white">{secondProfile.name}</p>
                 <p className="text-sm text-slate-400">

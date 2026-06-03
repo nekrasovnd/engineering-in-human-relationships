@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PencilLine } from 'lucide-react';
+import { ImagePlus, PencilLine, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   FACTOR_CONFIG,
@@ -9,6 +9,7 @@ import {
 } from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
 import { formatEgoStateLabel } from '../utils/egoState';
+import { prepareAvatarImage } from '../utils/avatarImage';
 import AvatarBadge from '../components/AvatarBadge';
 import InstructionCard from '../components/InstructionCard';
 import ProfileInsightCard from '../components/ProfileInsightCard';
@@ -69,12 +70,15 @@ function getFactorProfileExplanation(factor, rawScore) {
 
 export default function ProfilePage() {
   const { profile } = useAuth();
+  const avatarInputRef = useRef(null);
   const [editForm, setEditForm] = useState({
     name: '',
     age: '',
     gender: '',
+    avatarUrl: '',
   });
   const [saving, setSaving] = useState(false);
+  const [avatarProcessing, setAvatarProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -87,8 +91,58 @@ export default function ProfilePage() {
       name: profile.name || '',
       age: profile.age ? String(profile.age) : '',
       gender: profile.gender || '',
+      avatarUrl: profile.avatarUrl || '',
     });
   }, [profile]);
+
+  const buildAvatarInitials = (name) =>
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((item) => item[0]?.toUpperCase() || '')
+      .join('');
+
+  const handleAvatarPick = async (event) => {
+    const [file] = event.target.files || [];
+
+    if (!file) {
+      return;
+    }
+
+    setError('');
+    setMessage('');
+
+    try {
+      setAvatarProcessing(true);
+      const avatarUrl = await prepareAvatarImage(file);
+
+      setEditForm((current) => ({
+        ...current,
+        avatarUrl,
+      }));
+    } catch (avatarError) {
+      if (avatarError.message === 'invalid-file-type') {
+        setError('Для аватарки подойдут только изображения.');
+      } else if (avatarError.message === 'file-too-large') {
+        setError('Изображение слишком большое. Выберите файл до 6 МБ.');
+      } else {
+        setError('Не удалось подготовить аватарку. Попробуйте другое изображение.');
+      }
+    } finally {
+      setAvatarProcessing(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setError('');
+    setMessage('');
+    setEditForm((current) => ({
+      ...current,
+      avatarUrl: '',
+    }));
+  };
 
   const handleSaveProfileDetails = async (event) => {
     event.preventDefault();
@@ -112,15 +166,11 @@ export default function ProfilePage() {
         name: editForm.name.trim(),
         age,
         gender: editForm.gender,
-        avatarInitials: editForm.name
-          .trim()
-          .split(/\s+/)
-          .slice(0, 2)
-          .map((item) => item[0]?.toUpperCase() || '')
-          .join(''),
+        avatarInitials: buildAvatarInitials(editForm.name),
+        avatarUrl: editForm.avatarUrl || '',
       });
       setMessage(
-        'Базовые данные профиля обновлены без повторного прохождения опросника.',
+        'Профиль обновлён без повторного прохождения опросника.',
       );
     } catch {
       setError('Не удалось сохранить базовые данные профиля.');
@@ -149,7 +199,11 @@ export default function ProfilePage() {
         <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-[28px] border border-slate-800 bg-slate-950/40 p-5">
             <div className="flex items-center gap-4">
-              <AvatarBadge initials={profile.avatarInitials} size="lg" />
+              <AvatarBadge
+                initials={profile.avatarInitials}
+                imageUrl={profile.avatarUrl}
+                size="lg"
+              />
               <div>
                 <p className="font-display text-3xl text-white">{profile.name}</p>
                 <p className="mt-1 text-sm text-slate-400">
@@ -203,8 +257,54 @@ export default function ProfilePage() {
 
       <SectionCard
         title="Редактирование базовых данных"
-        subtitle="Имя, возраст и пол можно поменять отдельно. Повторный опросник нужен только если вы хотите пересчитать психологическую карту."
+        subtitle="Имя, возраст, пол и аватарку можно поменять отдельно. Повторный опросник нужен только если вы хотите пересчитать психологическую карту."
       >
+        <div className="mb-5 flex flex-col gap-4 rounded-3xl border border-slate-800 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <AvatarBadge
+              initials={buildAvatarInitials(editForm.name || profile.name || 'HR')}
+              imageUrl={editForm.avatarUrl}
+              size="lg"
+            />
+            <div>
+              <p className="text-sm font-medium text-white">Аватар профиля</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Лучше всего подойдёт квадратное фото или портрет. Мы аккуратно подрежем изображение и сохраним его для профиля.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleAvatarPick}
+              className="sr-only"
+            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={saving || avatarProcessing}
+              className="inline-flex items-center gap-2 rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <ImagePlus className="h-4 w-4" />
+              {avatarProcessing ? 'Готовим фото...' : 'Выбрать фото'}
+            </button>
+            {editForm.avatarUrl ? (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                disabled={saving || avatarProcessing}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-rose-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                Убрать
+              </button>
+            ) : null}
+          </div>
+        </div>
+
         <form
           className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]"
           onSubmit={handleSaveProfileDetails}

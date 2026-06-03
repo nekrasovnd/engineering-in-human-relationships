@@ -38,7 +38,11 @@ export default function SwipeDeck({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <AvatarBadge initials={candidate.avatarInitials} size="lg" />
+          <AvatarBadge
+            initials={candidate.avatarInitials}
+            imageUrl={candidate.avatarUrl}
+            size="lg"
+          />
           <div>
             <p className="font-display text-2xl text-white">{candidate.name}</p>
             <p className="mt-1 text-sm text-slate-400">{candidate.age} лет</p>
