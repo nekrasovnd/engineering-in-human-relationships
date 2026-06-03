@@ -1,40 +1,104 @@
-const HIGH = 7;
-const LOW = 4;
+import {
+  FACTOR_CONFIG,
+  getDisplayFactorScore,
+  getFactorPoleLabel,
+} from '../data/questionnaire';
+
+const HIGH = 6.5;
+const LOW = 3.5;
+
+function getFactorMeta(factorKey) {
+  return FACTOR_CONFIG.find((factor) => factor.key === factorKey);
+}
 
 function pickHighlights(scores) {
   const strengths = [];
   const risks = [];
+  const stabilityMeta = getFactorMeta('neuroticism');
+  const extraversionMeta = getFactorMeta('extraversion');
+  const dominanceMeta = getFactorMeta('dominance');
+  const rulesMeta = getFactorMeta('ruleAdaptation');
+  const empathyMeta = getFactorMeta('empathy');
+  const stressMeta = getFactorMeta('stressResponse');
+  const feedbackMeta = getFactorMeta('feedbackNeed');
+  const cooperationMeta = getFactorMeta('cooperation');
 
-  if (scores.neuroticism <= LOW) {
-    strengths.push('сохраняет хладнокровие и не разгоняет лишнюю тревогу');
+  const stabilityScore = getDisplayFactorScore('neuroticism', scores.neuroticism);
+  const stabilityPole = getFactorPoleLabel(stabilityMeta, scores.neuroticism);
+  const extraversionPole = getFactorPoleLabel(
+    extraversionMeta,
+    scores.extraversion,
+  );
+  const dominancePole = getFactorPoleLabel(dominanceMeta, scores.dominance);
+  const rulesPole = getFactorPoleLabel(rulesMeta, scores.ruleAdaptation);
+  const empathyPole = getFactorPoleLabel(empathyMeta, scores.empathy);
+  const stressPole = getFactorPoleLabel(stressMeta, scores.stressResponse);
+  const feedbackPole = getFactorPoleLabel(feedbackMeta, scores.feedbackNeed);
+  const cooperationPole = getFactorPoleLabel(
+    cooperationMeta,
+    scores.cooperation,
+  );
+
+  if (stabilityScore >= HIGH) {
+    strengths.push(
+      `в напряжении чаще держится в режиме «${stabilityPole}», чем уходит в эмоциональный разгон`,
+    );
   }
   if (scores.cooperation >= HIGH) {
-    strengths.push('умеет играть в общую цель и не зацикливается на личной победе');
+    strengths.push(
+      `в совместной работе тянется к режиму «${cooperationPole}» и удерживает общий результат`,
+    );
   }
   if (scores.empathy >= HIGH) {
-    strengths.push('считывает состояние людей и хорошо калибрует тон общения');
+    strengths.push(
+      `в общении хорошо попадает в режим «${empathyPole}» и считывает состояние других`,
+    );
   }
   if (scores.ruleAdaptation >= HIGH) {
-    strengths.push('любит ясные процессы, дедлайны и понятную зону ответственности');
+    strengths.push(
+      `умеет опираться на «${rulesPole}», когда нужно собрать людей вокруг процесса и сроков`,
+    );
   }
   if (scores.stressResponse >= HIGH) {
-    strengths.push('не теряется под давлением и умеет собирать кризис в план');
+    strengths.push(
+      `под давлением скорее включает «${stressPole}», чем выпадает из процесса`,
+    );
   }
 
-  if (scores.neuroticism >= HIGH) {
-    risks.push('может усиливать конфликт через тревогу, обиду или резкую реакцию');
+  if (stabilityScore <= LOW) {
+    risks.push(
+      `в тяжёлых ситуациях может застревать в режиме «${stabilityPole}» и усиливать напряжение реакцией`,
+    );
   }
   if (scores.dominance >= HIGH) {
-    risks.push('способен слишком жёстко продавливать свою позицию');
+    risks.push(
+      `может слишком жёстко уходить в «${dominancePole}» и оставлять мало места для встречного влияния`,
+    );
   }
   if (scores.feedbackNeed >= HIGH) {
-    risks.push('может проседать без частой обратной связи и коротких синхронизаций');
+    risks.push(
+      `без внешней сверки может проседать, потому что сильно опирается на режим «${feedbackPole}»`,
+    );
   }
   if (scores.cooperation <= LOW) {
-    risks.push('может уходить в внутреннюю конкуренцию и защищать свой вклад отдельно от команды');
+    risks.push(
+      `в напряжении может смещаться к «${cooperationPole}» и защищать личную позицию сильнее общего дела`,
+    );
   }
   if (scores.ruleAdaptation <= LOW) {
-    risks.push('хуже переносит жёсткие рамки и может спонтанно ломать договорённости');
+    risks.push(
+      `жёсткая структура может вызывать сопротивление, потому что человеку ближе режим «${rulesPole}»`,
+    );
+  }
+  if (scores.extraversion <= LOW) {
+    strengths.push(
+      `умеет продуктивно работать через «${extraversionPole}», когда нужен спокойный автономный контур`,
+    );
+  }
+  if (scores.extraversion >= HIGH) {
+    strengths.push(
+      `хорошо оживает в режиме «${extraversionPole}», когда нужна энергия группы и быстрый обмен`,
+    );
   }
 
   return {
@@ -47,38 +111,73 @@ export function buildProfileNarrative(profile) {
   const scores = profile.factorScores;
   const { strengths, risks } = pickHighlights(scores);
   const profileIntegrity = profile.profileIntegrity ?? 7;
+  const extraversionMeta = getFactorMeta('extraversion');
+  const feedbackMeta = getFactorMeta('feedbackNeed');
+  const rulesMeta = getFactorMeta('ruleAdaptation');
+  const dominanceMeta = getFactorMeta('dominance');
+  const stabilityMeta = getFactorMeta('neuroticism');
+  const extraversionPole = getFactorPoleLabel(
+    extraversionMeta,
+    scores.extraversion,
+  );
+  const feedbackPole = getFactorPoleLabel(
+    feedbackMeta,
+    scores.feedbackNeed,
+  );
+  const rulesPole = getFactorPoleLabel(rulesMeta, scores.ruleAdaptation);
+  const dominancePole = getFactorPoleLabel(dominanceMeta, scores.dominance);
+  const stabilityPole = getFactorPoleLabel(stabilityMeta, scores.neuroticism);
 
   const teamPredictionParts = [];
 
   if (profile.egoState === 'Взрослый') {
     teamPredictionParts.push(
-      'В команде чаще выступает стабилизатором: переводит эмоции в задачу и помогает договариваться через факты.',
+      'В команде чаще выступает стабилизатором: возвращает разговор к фактам, ролям и рабочему контуру.',
     );
   }
   if (profile.egoState === 'Родитель') {
     teamPredictionParts.push(
-      'С высокой вероятностью берёт на себя контроль, стандарты и темп, но может утомлять окружающих избыточной опекой.',
+      'С высокой вероятностью берёт на себя стандарт, темп и внешний контроль, но может перегружать других своим способом держать рамку.',
     );
   }
   if (profile.egoState === 'Ребёнок') {
     teamPredictionParts.push(
-      'Привносит живость, импульс и чувствительность к атмосфере, но нуждается в понятных рамках и поддержке.',
+      'Привносит живость, импульс и чувствительность к атмосфере, но лучше раскрывается там, где рамка уже достаточно понятна.',
     );
   }
 
   if (scores.extraversion >= HIGH) {
     teamPredictionParts.push(
-      'Лучше раскрывается в живом взаимодействии, быстрых обсуждениях и заметной роли внутри группы.',
+      `Лучше раскрывается через режим «${extraversionPole}»: живые обсуждения, быстрый обмен и заметное присутствие внутри группы.`,
     );
   } else if (scores.extraversion <= LOW) {
     teamPredictionParts.push(
-      'Эффективнее работает через спокойную концентрацию и асинхронное обдумывание перед обсуждением.',
+      `Эффективнее работает через режим «${extraversionPole}»: спокойную концентрацию и обдумывание до общего обсуждения.`,
     );
   }
 
   if (scores.feedbackNeed >= HIGH) {
     teamPredictionParts.push(
-      'Для устойчивой продуктивности полезны короткие регулярные чек-ины и конкретная обратная связь по ходу работы.',
+      `Для устойчивости полезны короткие регулярные сверки, потому что человек сильно опирается на «${feedbackPole}».`,
+    );
+  }
+  if (scores.ruleAdaptation >= HIGH) {
+    teamPredictionParts.push(
+      `Лучше всего собирается, когда у команды есть «${rulesPole}»: понятные роли, критерии и точки сверки.`,
+    );
+  } else if (scores.ruleAdaptation <= LOW) {
+    teamPredictionParts.push(
+      `Если среда слишком жёсткая, человек может уходить в сопротивление, потому что ему ближе «${rulesPole}».`,
+    );
+  }
+  if (scores.dominance >= HIGH) {
+    teamPredictionParts.push(
+      `В точках неопределённости может быстро забирать на себя «${dominancePole}», поэтому важно заранее развести зоны решений.`,
+    );
+  }
+  if (getDisplayFactorScore('neuroticism', scores.neuroticism) <= LOW) {
+    teamPredictionParts.push(
+      `Под сильным давлением полезно беречь ресурс, иначе человек может застревать в режиме «${stabilityPole}».`,
     );
   }
 
@@ -90,8 +189,7 @@ export function buildProfileNarrative(profile) {
 
   return {
     summary:
-      `Профиль ${profile.name} показывает сочетание ${profile.egoState.toLowerCase()}-позиции ` +
-      `с выраженностью факторов, важных для командной совместимости.`,
+      `Профиль ${profile.name} показывает, как человек обычно распределяет контроль, устойчивость, контакт и способ кооперации в совместной работе.`,
     strengths:
       strengths.length > 0
         ? strengths
