@@ -65,6 +65,27 @@ export async function saveProfile(userId, payload) {
   await batch.commit();
 }
 
+export async function saveQuestionnaireDraft(userId, payload) {
+  const privateRef = doc(db, 'profiles', userId);
+  const privateSnapshot = await getDoc(privateRef);
+  const currentProfile = privateSnapshot.data() || {};
+  const createdAt = currentProfile.createdAt || nowIso();
+  const updatedAt = nowIso();
+
+  await setDoc(
+    privateRef,
+    {
+      ...currentProfile,
+      userId,
+      ...payload,
+      questionnaireCompleted: currentProfile.questionnaireCompleted || false,
+      createdAt,
+      updatedAt,
+    },
+    { merge: true },
+  );
+}
+
 export async function createTeam(payload) {
   return addDoc(collection(db, 'teams'), {
     ...payload,

@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import {
+  useBeforeUnload,
+  useBlocker,
+  useNavigate,
+} from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FACTOR_CONFIG,
@@ -8,9 +12,23 @@ import {
   calculateQuestionnaireResult,
   getInitialAnswers,
 } from '../data/questionnaire';
-import { saveProfile } from '../services/firestore';
+import {
+  saveProfile,
+  saveQuestionnaireDraft,
+} from '../services/firestore';
 import { buildProfileNarrative } from '../utils/profileAnalysis';
 import SectionCard from '../components/SectionCard';
+
+const TOTAL_QUESTIONS = FACTOR_CONFIG.reduce(
+  (sum, factor) => sum + factor.questions.length,
+  0,
+);
+const AUTOSAVE_DELAY_MS = 900;
+const EMPTY_BASE_FORM = {
+  name: '',
+  age: '',
+  gender: '',
+};
 
 function getInitials(name) {
   return name
@@ -21,42 +39,184 @@ function getInitials(name) {
     .join('');
 }
 
+function buildDraftSnapshot(baseForm, answers) {
+  return JSON.stringify({
+    name: baseForm.name,
+    age: baseForm.age,
+    gender: baseForm.gender,
+    answers,
+  });
+}
+
+function buildDraftPayload(baseForm, answers) {
+  const age = Number(baseForm.age);
+  const payload = {
+    name: baseForm.name,
+    gender: baseForm.gender,
+    avatarInitials: getInitials(baseForm.name),
+    answers,
+  };
+
+  if (Number.isInteger(age) && age >= 16 && age <= 90) {
+    payload.age = age;
+  }
+
+  return payload;
+}
+
 export default function QuestionnairePage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [currentFactorIndex, setCurrentFactorIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [draftState, setDraftState] = useState('idle');
   const [error, setError] = useState('');
-  const [baseForm, setBaseForm] = useState({
-    name: '',
-    age: '',
-    gender: '',
-  });
+  const [baseForm, setBaseForm] = useState(EMPTY_BASE_FORM);
   const [answers, setAnswers] = useState(getInitialAnswers());
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  const hasHydratedRef = useRef(false);
+  const hasUserEditedRef = useRef(false);
+  const lastSavedSnapshotRef = useRef(
+    buildDraftSnapshot(EMPTY_BASE_FORM, getInitialAnswers()),
+  );
 
   useEffect(() => {
-    if (!profile) {
+    if (!user?.uid) {
+      hasHydratedRef.current = false;
+      hasUserEditedRef.current = false;
+      lastSavedSnapshotRef.current = buildDraftSnapshot(
+        EMPTY_BASE_FORM,
+        getInitialAnswers(),
+      );
+      setBaseForm(EMPTY_BASE_FORM);
+      setAnswers(getInitialAnswers());
+      setDraftState('idle');
+      setHasPendingChanges(false);
       return;
     }
 
-    setBaseForm({
-      name: profile.name || '',
-      age: profile.age ? String(profile.age) : '',
-      gender: profile.gender || '',
-    });
-    setAnswers({
+    if (hasUserEditedRef.current) {
+      return;
+    }
+
+    const nextBaseForm = profile
+      ? {
+          name: profile.name || '',
+          age: profile.age ? String(profile.age) : '',
+          gender: profile.gender || '',
+        }
+      : EMPTY_BASE_FORM;
+    const nextAnswers = {
       ...getInitialAnswers(),
-      ...(profile.answers || {}),
-    });
-  }, [profile]);
+      ...(profile?.answers || {}),
+    };
+
+    setBaseForm(nextBaseForm);
+    setAnswers(nextAnswers);
+    lastSavedSnapshotRef.current = buildDraftSnapshot(nextBaseForm, nextAnswers);
+    setDraftState('idle');
+    setHasPendingChanges(false);
+    hasHydratedRef.current = true;
+  }, [profile, user?.uid]);
 
   const currentFactor = FACTOR_CONFIG[currentFactorIndex];
   const answeredCount = useMemo(
     () => Object.values(answers).filter(Boolean).length,
     [answers],
   );
-  const completionPercent = Math.round((answeredCount / 40) * 100);
+  const completionPercent = Math.round((answeredCount / TOTAL_QUESTIONS) * 100);
   const isLastFactor = currentFactorIndex === FACTOR_CONFIG.length - 1;
+  const remainingCount = TOTAL_QUESTIONS - answeredCount;
+  const currentSnapshot = useMemo(
+    () => buildDraftSnapshot(baseForm, answers),
+    [answers, baseForm],
+  );
+  const hasProgress = useMemo(
+    () =>
+      answeredCount > 0 ||
+      Boolean(baseForm.name.trim()) ||
+      Boolean(baseForm.age) ||
+      Boolean(baseForm.gender),
+    [answeredCount, baseForm],
+  );
+  const shouldWarnBeforeExit = hasPendingChanges || (!profile?.questionnaireCompleted && hasProgress);
+  const blocker = useBlocker(shouldWarnBeforeExit);
+
+  useBeforeUnload((event) => {
+    if (!shouldWarnBeforeExit) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = '';
+  });
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') {
+      return;
+    }
+
+    const shouldLeave = window.confirm(
+      profile?.questionnaireCompleted
+        ? 'В анкете есть изменения, но итоговый профиль ещё не пересчитан. Выйти со страницы?'
+        : 'Анкета заполнена не до конца. Выйти со страницы?',
+    );
+
+    if (shouldLeave) {
+      blocker.proceed();
+      return;
+    }
+
+    blocker.reset();
+  }, [blocker, profile?.questionnaireCompleted]);
+
+  useEffect(() => {
+    if (!user?.uid || !hasHydratedRef.current || !hasUserEditedRef.current) {
+      return undefined;
+    }
+
+    if (currentSnapshot === lastSavedSnapshotRef.current) {
+      return undefined;
+    }
+
+    setDraftState('saving');
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        await saveQuestionnaireDraft(
+          user.uid,
+          buildDraftPayload(baseForm, answers),
+        );
+        lastSavedSnapshotRef.current = currentSnapshot;
+        setDraftState('saved');
+      } catch {
+        setDraftState('error');
+      }
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [answers, baseForm, currentSnapshot, user?.uid]);
+
+  const markQuestionnaireEdited = () => {
+    hasUserEditedRef.current = true;
+    setHasPendingChanges(true);
+    setDraftState((current) => (current === 'error' ? 'idle' : current));
+  };
+
+  const handleBaseFormChange = (key, value) => {
+    markQuestionnaireEdited();
+    setBaseForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const handleAnswerChange = (questionId, value) => {
+    markQuestionnaireEdited();
+    setAnswers((current) => ({
+      ...current,
+      [questionId]: value,
+    }));
+  };
 
   const handleSaveProfile = async () => {
     setError('');
@@ -72,8 +232,8 @@ export default function QuestionnairePage() {
       return;
     }
 
-    if (answeredCount !== 40) {
-      setError('Нужно ответить на все 40 вопросов.');
+    if (answeredCount !== TOTAL_QUESTIONS) {
+      setError(`Нужно ответить на все ${TOTAL_QUESTIONS} вопросов.`);
       return;
     }
 
@@ -101,6 +261,10 @@ export default function QuestionnairePage() {
         profileNarrative: narrative,
       });
 
+      hasUserEditedRef.current = false;
+      lastSavedSnapshotRef.current = currentSnapshot;
+      setHasPendingChanges(false);
+      setDraftState('saved');
       navigate('/profile');
     } catch {
       setError(
@@ -110,6 +274,31 @@ export default function QuestionnairePage() {
       setSaving(false);
     }
   };
+
+  const draftStatusMessage = useMemo(() => {
+    if (draftState === 'saving') {
+      return {
+        tone: 'text-amber-200',
+        text: 'Черновик анкеты сохраняется...',
+      };
+    }
+
+    if (draftState === 'saved' && hasPendingChanges) {
+      return {
+        tone: 'text-cyan-200',
+        text: 'Черновик сохранён. Для пересчёта итогового профиля нажмите «Сохранить профиль».',
+      };
+    }
+
+    if (draftState === 'error') {
+      return {
+        tone: 'text-rose-200',
+        text: 'Не удалось сохранить черновик. Изменения останутся только в текущей вкладке.',
+      };
+    }
+
+    return null;
+  }, [draftState, hasPendingChanges]);
 
   return (
     <div className="min-h-screen bg-aurora px-4 py-6 sm:px-6">
@@ -131,7 +320,9 @@ export default function QuestionnairePage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-slate-400">Ответов</p>
-                  <p className="mt-1 text-lg text-white">{answeredCount} / 40</p>
+                  <p className="mt-1 text-lg text-white">
+                    {answeredCount} / {TOTAL_QUESTIONS}
+                  </p>
                 </div>
               </div>
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
@@ -140,6 +331,9 @@ export default function QuestionnairePage() {
                   style={{ width: `${completionPercent}%` }}
                 />
               </div>
+              <p className="mt-3 text-sm text-slate-300">
+                Осталось ответить: {remainingCount}
+              </p>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
@@ -152,6 +346,11 @@ export default function QuestionnairePage() {
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {currentFactor.description}
               </p>
+              {draftStatusMessage ? (
+                <p className={`mt-3 text-sm leading-6 ${draftStatusMessage.tone}`}>
+                  {draftStatusMessage.text}
+                </p>
+              ) : null}
             </div>
           </div>
         </SectionCard>
@@ -169,10 +368,7 @@ export default function QuestionnairePage() {
                   required
                   value={baseForm.name}
                   onChange={(event) =>
-                    setBaseForm((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
+                    handleBaseFormChange('name', event.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
                   placeholder="Например, Анна Лебедева"
@@ -188,10 +384,7 @@ export default function QuestionnairePage() {
                   max="90"
                   value={baseForm.age}
                   onChange={(event) =>
-                    setBaseForm((current) => ({
-                      ...current,
-                      age: event.target.value,
-                    }))
+                    handleBaseFormChange('age', event.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
                   placeholder="27"
@@ -205,10 +398,7 @@ export default function QuestionnairePage() {
                 <select
                   value={baseForm.gender}
                   onChange={(event) =>
-                    setBaseForm((current) => ({
-                      ...current,
-                      gender: event.target.value,
-                    }))
+                    handleBaseFormChange('gender', event.target.value)
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
                 >
@@ -221,7 +411,7 @@ export default function QuestionnairePage() {
           </SectionCard>
 
           <SectionCard
-            title={`Блок ${currentFactorIndex + 1} из 8`}
+            title={`Блок ${currentFactorIndex + 1} из ${FACTOR_CONFIG.length}`}
             subtitle={currentFactor.label}
           >
             <div className="mb-5 flex flex-wrap gap-2">
@@ -266,10 +456,7 @@ export default function QuestionnairePage() {
                           value={option.value}
                           checked={Number(answers[question.id]) === option.value}
                           onChange={() =>
-                            setAnswers((current) => ({
-                              ...current,
-                              [question.id]: option.value,
-                            }))
+                            handleAnswerChange(question.id, option.value)
                           }
                           className="sr-only"
                         />
