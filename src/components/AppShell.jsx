@@ -17,9 +17,7 @@ export default function AppShell() {
               <p className="font-display text-lg text-white">
                 Engineering in Human Relationships
               </p>
-              <p className="text-sm text-slate-400">
-                {profile?.name} · {profile?.egoState}
-              </p>
+              <p className="text-sm text-slate-400">{profile?.name}</p>
             </div>
           </div>
 

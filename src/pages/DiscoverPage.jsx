@@ -8,6 +8,7 @@ import {
   subscribeOwnMatchDecisions,
 } from '../services/firestore';
 import { calculateCompatibility } from '../utils/compatibility';
+import { formatEgoStateLabel } from '../utils/egoState';
 import SectionCard from '../components/SectionCard';
 import SwipeDeck from '../components/SwipeDeck';
 
@@ -112,7 +113,7 @@ export default function DiscoverPage() {
     <div className="space-y-6">
       <SectionCard
         title="Режим знакомств"
-        subtitle="Здесь можно подбирать рабочих или личных партнёров по совместимости. На телефоне поддерживается свайп карточек."
+        subtitle="Здесь можно быстро смотреть людей и отмечать тех, с кем контакт кажется перспективным."
       >
         {matchMessage ? (
           <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
@@ -140,7 +141,9 @@ export default function DiscoverPage() {
 
             <div className="space-y-4">
               <div className="rounded-[28px] border border-slate-800 bg-slate-950/40 p-5">
-                <p className="font-display text-xl text-white">Почему система так считает</p>
+                <p className="font-display text-xl text-white">
+                  Что может сработать между вами
+                </p>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
                   {comparison.explanation}
                 </p>
@@ -154,7 +157,7 @@ export default function DiscoverPage() {
                   {undecidedProfiles.length}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Столько профилей ещё не получили от вас решение.
+                  Столько людей вы ещё не посмотрели.
                 </p>
               </div>
             </div>
@@ -165,7 +168,7 @@ export default function DiscoverPage() {
               Новых карточек пока нет
             </p>
             <p className="mt-3 text-sm leading-7 text-slate-400">
-              Вы уже просмотрели всех доступных пользователей. Когда в системе появятся новые профили, они попадут сюда автоматически.
+              Вы уже посмотрели всех доступных людей. Когда появятся новые профили, они сами попадут сюда.
             </p>
           </div>
         )}
@@ -173,11 +176,11 @@ export default function DiscoverPage() {
 
       <SectionCard
         title="Взаимные совпадения"
-        subtitle="Если оба пользователя нажали «Подходит», совпадение появляется здесь и можно сразу собрать совместную команду."
+        subtitle="Если интерес совпал с обеих сторон, человек появится здесь и можно будет сразу перейти к команде."
       >
         {mutualMatches.length === 0 ? (
           <p className="text-sm leading-7 text-slate-400">
-            Пока нет взаимных совпадений. Но логика уже работает: как только симпатия станет обоюдной, вы увидите уведомление и карточку ниже.
+            Пока тут пусто. Как только выбор совпадёт с обеих сторон, здесь появится карточка.
           </p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -187,9 +190,11 @@ export default function DiscoverPage() {
                 className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5"
               >
                 <p className="font-medium text-white">{match.name}</p>
-                <p className="mt-1 text-sm text-slate-400">{match.egoState}</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  {formatEgoStateLabel(match.egoState)}
+                </p>
                 <p className="mt-4 text-sm leading-6 text-slate-300">
-                  С этим человеком можно перейти в формат команды и уже там посмотреть роли и конфликтную пару.
+                  С этим человеком можно перейти в формат команды и уже там посмотреть роли и возможные точки трения.
                 </p>
                 <button
                   type="button"

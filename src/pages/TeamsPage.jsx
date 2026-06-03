@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProfiles } from '../hooks/useProfiles';
 import { useTeams } from '../hooks/useTeams';
 import { createTeam } from '../services/firestore';
+import { formatEgoStateLabel } from '../utils/egoState';
 import {
   buildTeamSummary,
   findMostConflictPair,
@@ -142,7 +143,7 @@ export default function TeamsPage() {
     <div className="space-y-6">
       <SectionCard
         title="Команды"
-        subtitle="Создавайте группы и смотрите, как участники сочетаются между собой."
+        subtitle="Соберите людей в одну группу и быстро посмотрите, как им будет вместе."
       >
         <form
           className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"
@@ -223,7 +224,7 @@ export default function TeamsPage() {
               Участники
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Добавлять можно только пользователей с завершённым профилем.
+              Здесь показываются только люди с заполненным профилем.
             </p>
 
             {profilesLoading ? (
@@ -252,7 +253,7 @@ export default function TeamsPage() {
                         <div>
                           <p className="font-medium text-white">{candidate.name}</p>
                           <p className="text-sm text-slate-400">
-                            {candidate.egoState}
+                            {formatEgoStateLabel(candidate.egoState)}
                           </p>
                         </div>
                         <span className="rounded-full bg-slate-950/80 px-3 py-1 text-xs text-blue-200">
@@ -280,8 +281,7 @@ export default function TeamsPage() {
           <p className="text-sm text-slate-400">Загружаем команды...</p>
         ) : teams.length === 0 ? (
           <p className="text-sm leading-7 text-slate-400">
-            Пока нет команд. Создайте первую группу и сразу увидите самую напряжённую
-            пару и рекомендуемые роли.
+            Пока нет ни одной команды. Создайте первую группу, и здесь сразу появится её разбор по ролям и напряжённым связкам.
           </p>
         ) : (
           <div className="space-y-5">

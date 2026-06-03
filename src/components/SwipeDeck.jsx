@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AvatarBadge from './AvatarBadge';
+import { formatEgoStateLabel } from '../utils/egoState';
 
 export default function SwipeDeck({
   candidate,
@@ -40,8 +41,9 @@ export default function SwipeDeck({
           <AvatarBadge initials={candidate.avatarInitials} size="lg" />
           <div>
             <p className="font-display text-2xl text-white">{candidate.name}</p>
-            <p className="mt-1 text-sm text-slate-400">
-              {candidate.age} лет · {candidate.egoState}
+            <p className="mt-1 text-sm text-slate-400">{candidate.age} лет</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {formatEgoStateLabel(candidate.egoState)}
             </p>
           </div>
         </div>
@@ -53,7 +55,7 @@ export default function SwipeDeck({
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            Конфликт
+            Риск трения
           </p>
           <p className="mt-2 text-lg font-semibold text-white">
             {comparison.conflictRisk}
@@ -61,7 +63,7 @@ export default function SwipeDeck({
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            Подход
+            Общий прогноз
           </p>
           <p className="mt-2 text-lg font-semibold text-white">
             {comparison.verdict}
@@ -69,7 +71,7 @@ export default function SwipeDeck({
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            Сильная сторона
+            Что может зацепить
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-200">
             {candidate.factorScores.cooperation >= 7
@@ -82,8 +84,8 @@ export default function SwipeDeck({
       </div>
 
       <p className="mt-5 text-sm leading-7 text-slate-300">
-        Свайп вправо или кнопка «Подходит» сохраняют положительный выбор. Свайп
-        влево или «Не подходит» убирают карточку из очереди.
+        Свайп вправо или кнопка «Подходит» оставляют человека в фокусе. Влево
+        или «Не подходит» убирают карточку дальше по ленте.
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">

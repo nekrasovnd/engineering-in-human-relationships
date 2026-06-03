@@ -10,7 +10,7 @@ export default function KnowledgeBasePage() {
     <div className="space-y-6">
       <SectionCard
         title="Гид по общению и совместимости"
-        subtitle="Здесь собраны идеи и приёмы, которые помогают лучше понимать себя, других и конфликтные ситуации."
+        subtitle="Здесь собраны идеи, которые помогают быстрее понять напряжение, роли и рабочие ходы."
       >
         <input
           type="text"
@@ -21,21 +21,23 @@ export default function KnowledgeBasePage() {
         />
       </SectionCard>
 
-      <SectionCard title="Законы развития систем">
+      <SectionCard
+        title="Если нужна быстрая идея"
+        subtitle="Это короткие приёмы, которые можно взять в разговор, команду или спор без долгой теории."
+      >
         <div className="grid gap-4 md:grid-cols-2">
-          {knowledge.laws.map((law) => (
+          {knowledge.teamExamples.slice(0, 4).map((item) => (
             <div
-              key={law.id}
-              className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5"
+              key={item}
+              className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5 text-sm leading-7 text-slate-300"
             >
-              <p className="font-display text-xl text-white">{law.title}</p>
-              <p className="mt-3 text-sm leading-7 text-slate-300">{law.summary}</p>
+              {item}
             </div>
           ))}
         </div>
       </SectionCard>
 
-      <SectionCard title="Приёмы для разрешения противоречий">
+      <SectionCard title="Приёмы для сложных ситуаций">
         <div className="grid gap-4 xl:grid-cols-2">
           {knowledge.principles.map((principle) => (
             <div
@@ -59,7 +61,7 @@ export default function KnowledgeBasePage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Аналогии между техникой и людьми">
+      <SectionCard title="Что можно заметить в поведении">
         <div className="grid gap-4 md:grid-cols-2">
           {knowledge.analogies.map((item) => (
             <div
@@ -72,7 +74,21 @@ export default function KnowledgeBasePage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Примеры для команд">
+      <SectionCard title="Законы и наблюдения">
+        <div className="grid gap-4 md:grid-cols-2">
+          {knowledge.laws.map((law) => (
+            <div
+              key={law.id}
+              className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5"
+            >
+              <p className="font-display text-xl text-white">{law.title}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{law.summary}</p>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Ещё примеры для команд">
         <div className="grid gap-4 md:grid-cols-2">
           {knowledge.teamExamples.map((item) => (
             <div

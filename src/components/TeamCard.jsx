@@ -1,4 +1,5 @@
 import { buildTeamSummary, findMostConflictPair, getRecommendedRoles } from '../utils/teamAnalysis';
+import { formatEgoStateLabel } from '../utils/egoState';
 import AvatarBadge from './AvatarBadge';
 import RadarProfileChart from './RadarProfileChart';
 import SectionCard from './SectionCard';
@@ -28,7 +29,9 @@ export default function TeamCard({ team, memberProfiles }) {
                   <AvatarBadge initials={member.avatarInitials} size="sm" />
                   <div>
                     <p className="font-medium text-white">{member.name}</p>
-                    <p className="text-sm text-slate-400">{member.egoState}</p>
+                    <p className="text-sm text-slate-400">
+                      {formatEgoStateLabel(member.egoState)}
+                    </p>
                   </div>
                 </div>
                 <RadarProfileChart scores={member.factorScores} compact />

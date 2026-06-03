@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getConflictResolutionHints } from '../utils/trizKnowledge';
+import { formatEgoStateLabel } from '../utils/egoState';
 import AvatarBadge from './AvatarBadge';
 import SectionCard from './SectionCard';
 
@@ -36,7 +37,9 @@ export default function ComparisonResultCard({
               <AvatarBadge initials={firstProfile.avatarInitials} size="sm" />
               <div>
                 <p className="font-medium text-white">{firstProfile.name}</p>
-                <p className="text-sm text-slate-400">{firstProfile.egoState}</p>
+                <p className="text-sm text-slate-400">
+                  {formatEgoStateLabel(firstProfile.egoState)}
+                </p>
               </div>
             </div>
 
@@ -46,7 +49,9 @@ export default function ComparisonResultCard({
               <AvatarBadge initials={secondProfile.avatarInitials} size="sm" />
               <div>
                 <p className="font-medium text-white">{secondProfile.name}</p>
-                <p className="text-sm text-slate-400">{secondProfile.egoState}</p>
+                <p className="text-sm text-slate-400">
+                  {formatEgoStateLabel(secondProfile.egoState)}
+                </p>
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { PencilLine } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { FACTOR_CONFIG } from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
+import { formatEgoStateLabel } from '../utils/egoState';
 import { getFactorTone } from '../utils/profileAnalysis';
 import AvatarBadge from '../components/AvatarBadge';
 import InstructionCard from '../components/InstructionCard';
@@ -75,8 +76,6 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <InstructionCard />
-
       <SectionCard
         title="Мой профиль"
         subtitle="Здесь собраны ваши результаты и основные данные."
@@ -102,8 +101,8 @@ export default function ProfilePage() {
                   {profile.age} лет
                   {profile.gender ? ` · ${profile.gender}` : ''}
                 </p>
-                <p className="mt-2 inline-flex rounded-full border border-slate-700 px-3 py-1 text-xs uppercase tracking-[0.2em] text-blue-200">
-                  {profile.egoState}
+                <p className="mt-2 inline-flex rounded-full border border-slate-700 px-3 py-1 text-xs text-blue-200">
+                  {formatEgoStateLabel(profile.egoState)}
                 </p>
               </div>
             </div>
@@ -221,6 +220,8 @@ export default function ProfilePage() {
           </div>
         ) : null}
       </SectionCard>
+
+      <InstructionCard />
 
       <SectionCard
         title="8 факторов"
