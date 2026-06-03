@@ -8,6 +8,8 @@ import {
   acceptTeamInvite,
   createTeamWithInvites,
   declineTeamInvite,
+  ensureTeamJoinCode,
+  requestTeamInviteByCode,
 } from '../services/firestore';
 import { formatEgoStateLabel } from '../utils/egoState';
 import SectionCard from '../components/SectionCard';
@@ -34,6 +36,10 @@ export default function TeamsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [respondingInviteId, setRespondingInviteId] = useState('');
+  const [codeInviteValue, setCodeInviteValue] = useState('');
+  const [codeInviteLoading, setCodeInviteLoading] = useState(false);
+  const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
+  const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -78,6 +84,7 @@ export default function TeamsPage() {
   const handleCreateTeam = async (event) => {
     event.preventDefault();
     setError('');
+    setCodeSuccess('');
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
@@ -113,6 +120,7 @@ export default function TeamsPage() {
 
   const handleAcceptInvite = async (inviteId) => {
     setError('');
+    setCodeSuccess('');
 
     try {
       setRespondingInviteId(inviteId);
@@ -126,6 +134,7 @@ export default function TeamsPage() {
 
   const handleDeclineInvite = async (inviteId) => {
     setError('');
+    setCodeSuccess('');
 
     try {
       setRespondingInviteId(inviteId);
@@ -134,6 +143,64 @@ export default function TeamsPage() {
       setError('Не удалось отклонить приглашение.');
     } finally {
       setRespondingInviteId('');
+    }
+  };
+
+  const handleRequestByCode = async () => {
+    setError('');
+    setCodeSuccess('');
+
+    if (!codeInviteValue.trim()) {
+      setError('Введите код приглашения.');
+      return;
+    }
+
+    try {
+      setCodeInviteLoading(true);
+      const result = await requestTeamInviteByCode(codeInviteValue, profile);
+      setCodeInviteValue('');
+      setCodeSuccess(`Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`);
+    } catch (requestError) {
+      if (requestError.message === 'code-not-found') {
+        setError('Такой код не найден или уже выключен.');
+      } else if (requestError.message === 'invite-already-pending') {
+        setError('По этому коду у вас уже есть ожидающее приглашение.');
+      } else if (requestError.message === 'already-joined') {
+        setError('Вы уже состоите в этой команде.');
+      } else if (requestError.message === 'own-team') {
+        setError('Это код вашей собственной команды.');
+      } else {
+        setError('Не удалось использовать код приглашения.');
+      }
+    } finally {
+      setCodeInviteLoading(false);
+    }
+  };
+
+  const handleGenerateCode = async (team) => {
+    setError('');
+    setCodeSuccess('');
+
+    try {
+      setGeneratingCodeForTeamId(team.id);
+      const code = await ensureTeamJoinCode(team, profile);
+      setCodeSuccess(`Код приглашения для команды «${team.name}»: ${code}`);
+    } catch {
+      setError('Не удалось создать код приглашения для команды.');
+    } finally {
+      setGeneratingCodeForTeamId('');
+    }
+  };
+
+  const handleCopyCode = async (code) => {
+    setError('');
+    setCodeSuccess('');
+
+    try {
+      await navigator.clipboard.writeText(code);
+      setCodeSuccess(`Код ${code} скопирован.`);
+    } catch {
+      setError('Не удалось скопировать код. Его можно выделить вручную.');
     }
   };
 
@@ -208,6 +275,12 @@ export default function TeamsPage() {
               </div>
             ) : null}
 
+            {codeSuccess ? (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                {codeSuccess}
+              </div>
+            ) : null}
+
             <button
               type="submit"
               disabled={saving}
@@ -270,6 +343,40 @@ export default function TeamsPage() {
                 })}
               </div>
             )}
+
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                Вступить по коду
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Если вам дали код команды напрямую, введите его здесь. Это работает без общего списка пользователей и без взаимного совпадения.
+              </p>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <input
+                  type="text"
+                  value={codeInviteValue}
+                  onChange={(event) => setCodeInviteValue(event.target.value.toUpperCase())}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      handleRequestByCode();
+                    }
+                  }}
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
+                  placeholder="Например, A7K2M9QP"
+                  maxLength={12}
+                />
+                <button
+                  type="button"
+                  onClick={handleRequestByCode}
+                  disabled={codeInviteLoading}
+                  className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {codeInviteLoading ? 'Проверяем код...' : 'Войти по коду'}
+                </button>
+              </div>
+            </div>
           </div>
         </form>
       </SectionCard>
@@ -340,11 +447,48 @@ export default function TeamsPage() {
         ) : (
           <div className="space-y-5">
             {createdTeams.map((team) => (
-              <TeamCard
-                key={team.id}
-                team={team}
-                memberProfiles={team.memberSnapshots || []}
-              />
+              <div key={team.id} className="space-y-3">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                    Код приглашения
+                  </p>
+                  {team.joinCode ? (
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="font-display text-2xl tracking-[0.2em] text-white">
+                        {team.joinCode}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCode(team.joinCode)}
+                        className="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white"
+                      >
+                        Скопировать код
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm leading-6 text-slate-400">
+                        У этой команды ещё нет кода. Его можно создать и отправить человеку напрямую.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateCode(team)}
+                        disabled={generatingCodeForTeamId === team.id}
+                        className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {generatingCodeForTeamId === team.id
+                          ? 'Создаём код...'
+                          : 'Создать код'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <TeamCard
+                  team={team}
+                  memberProfiles={team.memberSnapshots || []}
+                />
+              </div>
             ))}
           </div>
         )}

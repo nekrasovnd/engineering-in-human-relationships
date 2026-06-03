@@ -16,6 +16,8 @@ import {
 } from '../utils/teamAnalysis';
 
 const nowIso = () => new Date().toISOString();
+const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const TEAM_JOIN_CODE_LENGTH = 8;
 const DISCOVER_PROFILE_FIELDS = [
   'userId',
   'name',
@@ -69,6 +71,60 @@ function buildTeamAnalysis(memberProfiles) {
           conflictRisk: conflictPair.conflictRisk,
         }
       : null,
+  };
+}
+
+function normalizeTeamJoinCode(code) {
+  return String(code || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function generateTeamJoinCode() {
+  const bytes = new Uint32Array(TEAM_JOIN_CODE_LENGTH);
+  globalThis.crypto.getRandomValues(bytes);
+
+  return Array.from(bytes, (value) =>
+    TEAM_JOIN_CODE_ALPHABET[value % TEAM_JOIN_CODE_ALPHABET.length],
+  ).join('');
+}
+
+async function reserveUniqueTeamJoinCode() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = generateTeamJoinCode();
+    const snapshot = await getDoc(doc(db, 'teamJoinCodes', code));
+
+    if (!snapshot.exists()) {
+      return code;
+    }
+  }
+
+  throw new Error('Unable to reserve team join code');
+}
+
+function buildTeamJoinCodeDoc({
+  code,
+  teamId,
+  name,
+  description,
+  goal,
+  creatorProfile,
+  createdAt,
+  updatedAt,
+}) {
+  return {
+    code,
+    teamId,
+    teamName: name,
+    teamDescription: description,
+    teamGoal: goal,
+    createdBy: creatorProfile.userId,
+    createdByName: creatorProfile.name,
+    createdByAvatarInitials: creatorProfile.avatarInitials,
+    active: true,
+    createdAt,
+    updatedAt,
   };
 }
 
@@ -162,6 +218,8 @@ export async function createTeamWithInvites({
 }) {
   const timestamp = nowIso();
   const teamRef = doc(collection(db, 'teams'));
+  const joinCode = await reserveUniqueTeamJoinCode();
+  const joinCodeRef = doc(db, 'teamJoinCodes', joinCode);
   const creatorSnapshot = buildMemberSnapshot(creatorProfile);
   const uniqueInvitedProfiles = invitedProfiles.filter(
     (item, index, items) =>
@@ -174,6 +232,7 @@ export async function createTeamWithInvites({
     name,
     description,
     goal,
+    joinCode,
     createdBy: creatorProfile.userId,
     memberIds: [creatorProfile.userId],
     memberSnapshots: [creatorSnapshot],
@@ -181,6 +240,20 @@ export async function createTeamWithInvites({
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+
+  batch.set(
+    joinCodeRef,
+    buildTeamJoinCodeDoc({
+      code: joinCode,
+      teamId: teamRef.id,
+      name,
+      description,
+      goal,
+      creatorProfile,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }),
+  );
 
   uniqueInvitedProfiles.forEach((profile) => {
     const inviteRef = doc(db, 'teamInvites', `${teamRef.id}_${profile.userId}`);
@@ -196,6 +269,8 @@ export async function createTeamWithInvites({
       toName: profile.name,
       toAvatarInitials: profile.avatarInitials,
       status: 'pending',
+      source: 'direct',
+      joinCode: null,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -203,6 +278,105 @@ export async function createTeamWithInvites({
 
   await batch.commit();
   return teamRef.id;
+}
+
+export async function ensureTeamJoinCode(team, creatorProfile) {
+  if (team.joinCode) {
+    return team.joinCode;
+  }
+
+  const code = await reserveUniqueTeamJoinCode();
+  const updatedAt = nowIso();
+  const teamRef = doc(db, 'teams', team.id);
+  const joinCodeRef = doc(db, 'teamJoinCodes', code);
+  const batch = writeBatch(db);
+
+  batch.set(
+    teamRef,
+    {
+      joinCode: code,
+      updatedAt,
+    },
+    { merge: true },
+  );
+  batch.set(
+    joinCodeRef,
+    buildTeamJoinCodeDoc({
+      code,
+      teamId: team.id,
+      name: team.name,
+      description: team.description,
+      goal: team.goal,
+      creatorProfile,
+      createdAt: team.createdAt || updatedAt,
+      updatedAt,
+    }),
+  );
+
+  await batch.commit();
+  return code;
+}
+
+export async function requestTeamInviteByCode(code, profile) {
+  const normalizedCode = normalizeTeamJoinCode(code);
+
+  if (normalizedCode.length < 6) {
+    throw new Error('invalid-code');
+  }
+
+  const joinCodeRef = doc(db, 'teamJoinCodes', normalizedCode);
+  const joinCodeSnapshot = await getDoc(joinCodeRef);
+
+  if (!joinCodeSnapshot.exists() || joinCodeSnapshot.data()?.active !== true) {
+    throw new Error('code-not-found');
+  }
+
+  const joinCodeData = joinCodeSnapshot.data();
+
+  if (joinCodeData.createdBy === profile.userId) {
+    throw new Error('own-team');
+  }
+
+  const inviteRef = doc(
+    db,
+    'teamInvites',
+    `${joinCodeData.teamId}_${profile.userId}`,
+  );
+  const inviteSnapshot = await getDoc(inviteRef);
+  const currentInvite = inviteSnapshot.data();
+
+  if (currentInvite?.status === 'accepted') {
+    throw new Error('already-joined');
+  }
+
+  if (currentInvite?.status === 'pending') {
+    throw new Error('invite-already-pending');
+  }
+
+  const timestamp = nowIso();
+
+  await setDoc(inviteRef, {
+    teamId: joinCodeData.teamId,
+    teamName: joinCodeData.teamName,
+    teamDescription: joinCodeData.teamDescription,
+    teamGoal: joinCodeData.teamGoal,
+    fromUid: joinCodeData.createdBy,
+    fromName: joinCodeData.createdByName,
+    fromAvatarInitials: joinCodeData.createdByAvatarInitials,
+    toUid: profile.userId,
+    toName: profile.name,
+    toAvatarInitials: profile.avatarInitials,
+    status: 'pending',
+    source: 'code',
+    joinCode: normalizedCode,
+    createdAt: currentInvite?.createdAt || timestamp,
+    updatedAt: timestamp,
+  });
+
+  return {
+    teamId: joinCodeData.teamId,
+    teamName: joinCodeData.teamName,
+  };
 }
 
 export async function acceptTeamInvite(inviteId, profile) {
