@@ -139,6 +139,51 @@ function buildDiscoverProfile(profile, createdAt, updatedAt) {
   };
 }
 
+async function syncProfileAcrossTeams(userId, profile, updatedAt) {
+  if (
+    !profile.questionnaireCompleted ||
+    !profile.factorScores ||
+    !profile.factorReliability ||
+    !profile.systemIndices
+  ) {
+    return;
+  }
+
+  const teamsSnapshot = await getDocs(
+    query(
+      collection(db, 'teams'),
+      where('memberIds', 'array-contains', userId),
+    ),
+  );
+
+  if (teamsSnapshot.empty) {
+    return;
+  }
+
+  const ownSnapshot = buildMemberSnapshot(profile);
+  const batch = writeBatch(db);
+
+  teamsSnapshot.docs.forEach((teamDocument) => {
+    const team = teamDocument.data();
+    const nextMemberSnapshots = [
+      ...(team.memberSnapshots || []).filter((item) => item.userId !== userId),
+      ownSnapshot,
+    ];
+
+    batch.set(
+      doc(db, 'teams', teamDocument.id),
+      {
+        memberSnapshots: nextMemberSnapshots,
+        analysis: buildTeamAnalysis(nextMemberSnapshots),
+        updatedAt,
+      },
+      { merge: true },
+    );
+  });
+
+  await batch.commit();
+}
+
 export async function saveProfile(userId, payload) {
   const privateRef = doc(db, 'profiles', userId);
   const discoverRef = doc(db, 'discoverProfiles', userId);
@@ -188,6 +233,7 @@ export async function saveProfile(userId, payload) {
   }
 
   await batch.commit();
+  await syncProfileAcrossTeams(userId, nextPrivateProfile, updatedAt);
 }
 
 export async function saveQuestionnaireDraft(userId, payload) {
