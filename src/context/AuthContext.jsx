@@ -40,6 +40,9 @@ export function AuthProvider({ children }) {
         return;
       }
 
+      setLoading(true);
+      setProfile(null);
+
       unsubscribeProfile = onSnapshot(
         doc(db, 'profiles', nextUser.uid),
         (snapshot) => {
