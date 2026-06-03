@@ -39,6 +39,7 @@ export default function TeamsPage() {
   const [codeInviteValue, setCodeInviteValue] = useState('');
   const [codeInviteLoading, setCodeInviteLoading] = useState(false);
   const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
+  const [copiedCodeForTeamId, setCopiedCodeForTeamId] = useState('');
   const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -55,6 +56,18 @@ export default function TeamsPage() {
       ),
     }));
   }, [location.state]);
+
+  useEffect(() => {
+    if (!copiedCodeForTeamId) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedCodeForTeamId('');
+    }, 2200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copiedCodeForTeamId]);
 
   const pendingInvites = useMemo(
     () => invites.filter((item) => item.status === 'pending'),
@@ -84,7 +97,6 @@ export default function TeamsPage() {
   const handleCreateTeam = async (event) => {
     event.preventDefault();
     setError('');
-    setCodeSuccess('');
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
@@ -192,12 +204,13 @@ export default function TeamsPage() {
     }
   };
 
-  const handleCopyCode = async (code) => {
+  const handleCopyCode = async (teamId, code) => {
     setError('');
     setCodeSuccess('');
 
     try {
       await navigator.clipboard.writeText(code);
+      setCopiedCodeForTeamId(teamId);
       setCodeSuccess(`Код ${code} скопирован.`);
     } catch {
       setError('Не удалось скопировать код. Его можно выделить вручную.');
@@ -454,13 +467,24 @@ export default function TeamsPage() {
                   </p>
                   {team.joinCode ? (
                     <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="font-display text-2xl tracking-[0.2em] text-white">
-                        {team.joinCode}
-                      </p>
+                      <div>
+                        <p className="font-display text-2xl tracking-[0.2em] text-white">
+                          {team.joinCode}
+                        </p>
+                        {copiedCodeForTeamId === team.id ? (
+                          <p className="mt-2 text-sm text-emerald-200">
+                            Код скопирован
+                          </p>
+                        ) : null}
+                      </div>
                       <button
                         type="button"
-                        onClick={() => handleCopyCode(team.joinCode)}
-                        className="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white"
+                        onClick={() => handleCopyCode(team.id, team.joinCode)}
+                        className={`rounded-2xl border px-4 py-3 text-sm transition ${
+                          copiedCodeForTeamId === team.id
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                            : 'border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white'
+                        }`}
                       >
                         Скопировать код
                       </button>
