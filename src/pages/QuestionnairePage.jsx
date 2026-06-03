@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
-import {
-  useBeforeUnload,
-  useBlocker,
-  useNavigate,
-} from 'react-router-dom';
+import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FACTOR_CONFIG,
@@ -139,8 +135,8 @@ export default function QuestionnairePage() {
       Boolean(baseForm.gender),
     [answeredCount, baseForm],
   );
-  const shouldWarnBeforeExit = hasPendingChanges || (!profile?.questionnaireCompleted && hasProgress);
-  const blocker = useBlocker(shouldWarnBeforeExit);
+  const shouldWarnBeforeExit =
+    hasPendingChanges || (!profile?.questionnaireCompleted && hasProgress);
 
   useBeforeUnload((event) => {
     if (!shouldWarnBeforeExit) {
@@ -150,25 +146,6 @@ export default function QuestionnairePage() {
     event.preventDefault();
     event.returnValue = '';
   });
-
-  useEffect(() => {
-    if (blocker.state !== 'blocked') {
-      return;
-    }
-
-    const shouldLeave = window.confirm(
-      profile?.questionnaireCompleted
-        ? 'В анкете есть изменения, но итоговый профиль ещё не пересчитан. Выйти со страницы?'
-        : 'Анкета заполнена не до конца. Выйти со страницы?',
-    );
-
-    if (shouldLeave) {
-      blocker.proceed();
-      return;
-    }
-
-    blocker.reset();
-  }, [blocker, profile?.questionnaireCompleted]);
 
   useEffect(() => {
     if (!user?.uid || !hasHydratedRef.current || !hasUserEditedRef.current) {
