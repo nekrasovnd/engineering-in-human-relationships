@@ -11,7 +11,7 @@ import ProfilePage from './pages/ProfilePage';
 import QuestionnairePage from './pages/QuestionnairePage';
 import TeamsPage from './pages/TeamsPage';
 
-const APP_LOADING_LABEL = 'Синхронизируем профиль и маршруты...';
+const APP_LOADING_LABEL = 'Секунду, всё почти готово...';
 
 function AuthOnlyRoute({ requireProfile = false }) {
   const { user, profile, loading } = useAuth();
