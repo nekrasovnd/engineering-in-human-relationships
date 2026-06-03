@@ -6,6 +6,7 @@ import {
   FACTOR_CONFIG,
   LIKERT_OPTIONS,
   calculateQuestionnaireResult,
+  getQuestionAgreementPoleLabel,
   getInitialAnswers,
 } from '../data/questionnaire';
 import {
@@ -326,6 +327,11 @@ export default function QuestionnairePage() {
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 {currentFactor.description}
               </p>
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                <span>{currentFactor.lowPoleLabel}</span>
+                <span className="text-slate-500">↔</span>
+                <span className="text-right">{currentFactor.highPoleLabel}</span>
+              </div>
               {draftStatusMessage ? (
                 <p className={`mt-3 text-sm leading-6 ${draftStatusMessage.tone}`}>
                   {draftStatusMessage.text}
@@ -418,43 +424,55 @@ export default function QuestionnairePage() {
                 а как смесь прямых и обратных ответов.
               </div>
 
-              {currentFactor.questions.map((question, questionIndex) => (
-                <div
-                  key={question.id}
-                  className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"
-                >
-                  <p className="text-sm leading-7 text-white">
-                    {questionIndex + 1}. {question.text}
-                  </p>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-5">
-                    {LIKERT_OPTIONS.map((option) => (
-                      <label
-                        key={option.value}
-                        className={`cursor-pointer rounded-2xl border p-3 text-sm transition ${
-                          Number(answers[question.id]) === option.value
-                            ? 'border-blue-400 bg-blue-500/10 text-white'
-                            : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={question.id}
-                          value={option.value}
-                          checked={Number(answers[question.id]) === option.value}
-                          onChange={() =>
-                            handleAnswerChange(question.id, option.value)
-                          }
-                          className="sr-only"
-                        />
-                        <span className="block text-xs uppercase tracking-[0.2em]">
-                          {option.value}
-                        </span>
-                        <span className="mt-1 block leading-5">{option.label}</span>
-                      </label>
-                    ))}
+              {currentFactor.questions.map((question, questionIndex) => {
+                const questionPoleLabel = getQuestionAgreementPoleLabel(
+                  currentFactor,
+                  question,
+                );
+
+                return (
+                  <div
+                    key={question.id}
+                    className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <p className="text-sm leading-7 text-white">
+                        {questionIndex + 1}. {question.text}
+                      </p>
+                      <span className="rounded-full border border-slate-700 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        тянет к: {questionPoleLabel}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-5">
+                      {LIKERT_OPTIONS.map((option) => (
+                        <label
+                          key={option.value}
+                          className={`cursor-pointer rounded-2xl border p-3 text-sm transition ${
+                            Number(answers[question.id]) === option.value
+                              ? 'border-blue-400 bg-blue-500/10 text-white'
+                              : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={question.id}
+                            value={option.value}
+                            checked={Number(answers[question.id]) === option.value}
+                            onChange={() =>
+                              handleAnswerChange(question.id, option.value)
+                            }
+                            className="sr-only"
+                          />
+                          <span className="block text-xs uppercase tracking-[0.2em]">
+                            {option.value}
+                          </span>
+                          <span className="mt-1 block leading-5">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">

@@ -6,6 +6,9 @@ export const FACTOR_CONFIG = [
     key: 'neuroticism',
     label: 'Эмоциональная реактивность / устойчивость',
     shortLabel: 'Стабильность',
+    lowPoleLabel: 'реактивность',
+    highPoleLabel: 'устойчивость',
+    balancedLabel: 'гибкая регуляция',
     description:
       'Показывает, насколько человек сохраняет внутреннее равновесие в неопределённости, напряжении и критике.',
     questions: [
@@ -37,6 +40,9 @@ export const FACTOR_CONFIG = [
     key: 'extraversion',
     label: 'Экстраверсия / коммуникативная энергия',
     shortLabel: 'Экстраверсия',
+    lowPoleLabel: 'автономный режим',
+    highPoleLabel: 'внешний обмен',
+    balancedLabel: 'переключаемый режим',
     description:
       'Оценивает, насколько человеку нужен внешний контакт, живой обмен и заметность в коммуникации.',
     questions: [
@@ -68,6 +74,9 @@ export const FACTOR_CONFIG = [
     key: 'dominance',
     label: 'Доминантность / склонность брать управление',
     shortLabel: 'Доминантность',
+    lowPoleLabel: 'следование',
+    highPoleLabel: 'ведение',
+    balancedLabel: 'паритетное влияние',
     description:
       'Фиксирует стремление влиять на направление, брать контроль на себя и удерживать право последнего слова.',
     questions: [
@@ -99,6 +108,9 @@ export const FACTOR_CONFIG = [
     key: 'ruleAdaptation',
     label: 'Отношение к правилам / структурность',
     shortLabel: 'Правила',
+    lowPoleLabel: 'гибкая импровизация',
+    highPoleLabel: 'структурная опора',
+    balancedLabel: 'адаптивная структура',
     description:
       'Показывает, насколько человеку нужны процессы, договорённости, сроки и формальная рамка работы.',
     questions: [
@@ -130,6 +142,9 @@ export const FACTOR_CONFIG = [
     key: 'empathy',
     label: 'Эмпатия / чувствительность к состоянию другого',
     shortLabel: 'Эмпатия',
+    lowPoleLabel: 'логическая прямота',
+    highPoleLabel: 'считывание состояния',
+    balancedLabel: 'точная калибровка',
     description:
       'Оценивает, насколько человек замечает эмоциональный контекст и умеет подстраивать под него общение.',
     questions: [
@@ -161,6 +176,9 @@ export const FACTOR_CONFIG = [
     key: 'stressResponse',
     label: 'Реакция на стресс / собранность под нагрузкой',
     shortLabel: 'Стресс',
+    lowPoleLabel: 'остановка под давлением',
+    highPoleLabel: 'сборка под нагрузкой',
+    balancedLabel: 'управляемый отклик',
     description:
       'Отражает, насколько человек под давлением остаётся собранным, активным и способным удерживать ход действий.',
     questions: [
@@ -192,6 +210,9 @@ export const FACTOR_CONFIG = [
     key: 'feedbackNeed',
     label: 'Потребность в обратной связи',
     shortLabel: 'Фидбек',
+    lowPoleLabel: 'самодостаточный контур',
+    highPoleLabel: 'частая внешняя сверка',
+    balancedLabel: 'умеренная синхронизация',
     description:
       'Показывает, насколько человеку для устойчивой работы нужны отклик, подтверждение и регулярная сверка курса.',
     questions: [
@@ -223,6 +244,9 @@ export const FACTOR_CONFIG = [
     key: 'cooperation',
     label: 'Сотрудничество / конкуренция',
     shortLabel: 'Кооперация',
+    lowPoleLabel: 'конкурентный режим',
+    highPoleLabel: 'кооперативный режим',
+    balancedLabel: 'сдержанное партнёрство',
     description:
       'Показывает готовность делиться ресурсом, договариваться и усиливать общий результат, а не только личную позицию.',
     questions: [
@@ -285,6 +309,31 @@ export function getDisplayFactorScore(factorKey, score) {
   const nextScore = transform ? transform(score) : score;
 
   return Number(nextScore.toFixed(1));
+}
+
+export function getFactorPoleLabel(factor, rawScore) {
+  const score = getDisplayFactorScore(factor.key, rawScore);
+
+  if (score >= 6.5) {
+    return factor.highPoleLabel;
+  }
+
+  if (score <= 3.5) {
+    return factor.lowPoleLabel;
+  }
+
+  return factor.balancedLabel;
+}
+
+export function getQuestionAgreementPoleLabel(factor, question) {
+  const displayReversed = Object.hasOwn(DISPLAY_SCORE_TRANSFORMS, factor.key);
+  const agreementTargetsHighPole = displayReversed
+    ? Boolean(question.reverse)
+    : !question.reverse;
+
+  return agreementTargetsHighPole
+    ? factor.highPoleLabel
+    : factor.lowPoleLabel;
 }
 
 function getAlignedQuestionScore(question, answerValue) {

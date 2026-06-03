@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import {
   FACTOR_CONFIG,
   getDisplayFactorScore,
+  getFactorPoleLabel,
 } from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
 import { formatEgoStateLabel } from '../utils/egoState';
-import { getFactorTone } from '../utils/profileAnalysis';
 import AvatarBadge from '../components/AvatarBadge';
 import InstructionCard from '../components/InstructionCard';
 import ProfileInsightCard from '../components/ProfileInsightCard';
@@ -239,37 +239,42 @@ export default function ProfilePage() {
 
       <SectionCard
         title="8 факторов"
-        subtitle="Каждая шкала показывает, насколько выражено качество по вашим ответам."
+        subtitle="Каждая шкала — это ось между двумя рабочими режимами, а не оценка “хорошо / плохо”."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {FACTOR_CONFIG.map((factor) => (
-            <div
-              key={factor.key}
-              className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"
-            >
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-                {factor.shortLabel}
-              </p>
-              <p className="mt-2 font-display text-3xl text-white">
-                {getDisplayFactorScore(
-                  factor.key,
-                  profile.factorScores[factor.key],
-                )}
-              </p>
-              <p className="mt-1 text-sm text-blue-200">
-                {getFactorTone(
-                  getDisplayFactorScore(
-                    factor.key,
-                    profile.factorScores[factor.key],
-                  ),
-                )}{' '}
-                уровень
-              </p>
-              <p className="mt-3 text-sm leading-6 text-slate-400">
-                {factor.description}
-              </p>
-            </div>
-          ))}
+          {FACTOR_CONFIG.map((factor) => {
+            const displayScore = getDisplayFactorScore(
+              factor.key,
+              profile.factorScores[factor.key],
+            );
+            const poleLabel = getFactorPoleLabel(
+              factor,
+              profile.factorScores[factor.key],
+            );
+
+            return (
+              <div
+                key={factor.key}
+                className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"
+              >
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                  {factor.shortLabel}
+                </p>
+                <p className="mt-2 font-display text-3xl text-white">
+                  {displayScore}
+                </p>
+                <p className="mt-1 text-sm text-blue-200">{poleLabel}</p>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                  <span>{factor.lowPoleLabel}</span>
+                  <span className="text-slate-500">↔</span>
+                  <span className="text-right">{factor.highPoleLabel}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-400">
+                  {factor.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </SectionCard>
 
