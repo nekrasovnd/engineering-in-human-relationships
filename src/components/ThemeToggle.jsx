@@ -10,7 +10,7 @@ const ROUTES_WITH_BOTTOM_NAV = new Set([
   '/compare',
 ]);
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ inline = false }) {
   const { isLightTheme, toggleTheme } = useTheme();
   const location = useLocation();
   const hasBottomNav = ROUTES_WITH_BOTTOM_NAV.has(location.pathname);
@@ -19,15 +19,21 @@ export default function ThemeToggle() {
     ? 'Включить тёмную тему'
     : 'Включить светлую тему';
 
+  if (!inline && hasBottomNav) {
+    return null;
+  }
+
   return (
     <button
       type="button"
       onClick={toggleTheme}
       aria-label={label}
       title={label}
-      className={`fixed right-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-slate-950/85 text-slate-200 shadow-glow backdrop-blur transition hover:border-blue-400 hover:text-white ${
-        hasBottomNav ? 'bottom-28 right-3 sm:bottom-24 sm:right-4' : 'bottom-4 sm:bottom-6'
-      }`}
+      className={
+        inline
+          ? 'inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-950/70 text-slate-200 shadow-glow backdrop-blur transition hover:border-blue-400 hover:text-white'
+          : 'fixed bottom-4 right-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-slate-950/85 text-slate-200 shadow-glow backdrop-blur transition hover:border-blue-400 hover:text-white sm:bottom-6'
+      }
     >
       <Icon className="h-5 w-5" />
     </button>

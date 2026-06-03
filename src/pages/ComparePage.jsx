@@ -74,19 +74,24 @@ export default function ComparePage() {
   return (
     <div className="space-y-6">
       <SectionCard
-        title="Сравнение пользователей"
-        subtitle="Здесь доступны только взаимные совпадения и участники ваших команд. Общего каталога всех профилей больше нет."
+        title="Сравнение"
+        subtitle="Здесь можно спокойно посмотреть, как вы стыкуетесь по ритму связи, давлению и способу держать общий курс."
       >
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-            Кандидат для сравнения
+            Кого можно сравнить
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            Здесь доступны только взаимные совпадения и люди из ваших команд. Сравнение остаётся внутри уже подтверждённого контакта.
           </p>
 
           {matchesLoading || teamsLoading ? (
-            <p className="mt-4 text-sm text-slate-400">Собираем доступные профили...</p>
+            <p className="mt-4 text-sm text-slate-400">
+              Собираем доступные профили...
+            </p>
           ) : candidates.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-sm leading-6 text-slate-400">
-              Сравнение станет доступно, когда у вас появятся взаимные совпадения в знакомствах или команды с другими участниками.
+              Сравнение откроется, когда у вас появятся взаимные совпадения в знакомствах или команды с другими участниками.
             </div>
           ) : (
             <>
@@ -105,6 +110,7 @@ export default function ComparePage() {
               <div className="mt-5 space-y-3">
                 {candidates.slice(0, 6).map((item) => {
                   const quick = calculateCompatibility(profile, item);
+
                   return (
                     <button
                       key={item.userId}
@@ -120,7 +126,11 @@ export default function ComparePage() {
                         <div>
                           <p className="font-medium text-white">{item.name}</p>
                           <p className="mt-1 text-sm text-slate-400">
-                            {formatEgoStateLabel(item.egoState)}
+                            {formatEgoStateLabel(item.egoState)} ·{' '}
+                            {quick.teamFitLabel}
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-300">
+                            {quick.supportPoint}
                           </p>
                         </div>
                         <span className="rounded-full bg-slate-950/80 px-3 py-1 text-xs text-blue-200">
@@ -145,18 +155,18 @@ export default function ComparePage() {
           />
 
           <SectionCard
-            title="Если интересно, как читать результат"
-            subtitle="Без формул: вот на что стоит смотреть в первую очередь."
+            title="Как читать результат"
+            subtitle="Без формул: вот на что полезно смотреть в первую очередь."
           >
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm leading-6 text-slate-300">
-                Высокая совместимость обычно означает, что вам будет легче держать общий темп и договариваться без лишнего трения.
+                Процент показывает общую стыковку, но не заменяет смысл. Его лучше читать вместе с пояснениями про связь, давление и роли.
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm leading-6 text-slate-300">
-                Риск конфликта показывает не “плохую пару”, а места, где лучше заранее договориться о границах и формате общения.
+                Контур связи отвечает за то, насколько вам легко держать один ритм общения и не путать молчание, резкость или задержку ответа с личным отношением.
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm leading-6 text-slate-300">
-                Итоговый прогноз полезно читать вместе с объяснением и подсказками, а не только по одному проценту.
+                Резерв пары показывает, сколько у связки запаса на стресс. Чем он выше, тем меньше шанс, что обычная нагрузка быстро сорвёт вас в трение.
               </div>
             </div>
           </SectionCard>

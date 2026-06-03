@@ -4,13 +4,27 @@ import { formatEgoStateLabel } from '../utils/egoState';
 import AvatarBadge from './AvatarBadge';
 import SectionCard from './SectionCard';
 
-function toneClass(value) {
-  if (value === 'Высокий' || value === 'Нет') {
+function riskToneClass(value) {
+  if (value === 'Высокий') {
     return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
   }
-  if (value === 'Средний' || value === 'Условно') {
+
+  if (value === 'Средний') {
     return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
   }
+
+  return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+}
+
+function fitToneClass(value) {
+  if (value === 'Нет') {
+    return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+  }
+
+  if (value === 'Условно') {
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+  }
+
   return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
 }
 
@@ -27,8 +41,8 @@ export default function ComparisonResultCard({
 
   return (
     <SectionCard
-      title="Карточка совместимости"
-      subtitle="Короткий разбор того, насколько вам будет комфортно взаимодействовать."
+      title="Как вы стыкуетесь"
+      subtitle="Это не ярлык на пару, а карта того, где вам будет легко, а где лучше заранее договориться о ритме, роли и давлении."
     >
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
@@ -56,10 +70,14 @@ export default function ComparisonResultCard({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <p className="text-sm leading-7 text-slate-200">{comparison.pairSummary}</p>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
               <p className="text-xs uppercase tracking-[0.24em] text-blue-300">
-                Совместимость
+                Общая стыковка
               </p>
               <p className="mt-2 font-display text-4xl text-white">
                 {comparison.compatibility}%
@@ -67,17 +85,45 @@ export default function ComparisonResultCard({
             </div>
 
             <div
-              className={`rounded-2xl border p-4 ${toneClass(comparison.conflictRisk)}`}
+              className={`rounded-2xl border p-4 ${riskToneClass(comparison.conflictRisk)}`}
             >
-              <p className="text-xs uppercase tracking-[0.24em]">Прогноз конфликта</p>
-              <p className="mt-2 text-2xl font-semibold">{comparison.conflictRisk}</p>
+              <p className="text-xs uppercase tracking-[0.24em]">
+                Вероятность трения
+              </p>
+              <p className="mt-2 text-2xl font-semibold">
+                {comparison.conflictRisk}
+              </p>
             </div>
 
-            <div className={`rounded-2xl border p-4 ${toneClass(comparison.verdict)}`}>
+            <div
+              className={`rounded-2xl border p-4 ${fitToneClass(comparison.verdict)}`}
+            >
               <p className="text-xs uppercase tracking-[0.24em]">
-                Вместе в одной команде?
+                Командный режим
               </p>
-              <p className="mt-2 text-2xl font-semibold">{comparison.verdict}</p>
+              <p className="mt-2 text-lg font-semibold">
+                {comparison.teamFitLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-emerald-200">
+                Где будет легче
+              </p>
+              <p className="mt-2 text-sm leading-6 text-emerald-50">
+                {comparison.supportPoint}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.24em] text-amber-200">
+                Где заранее договориться
+              </p>
+              <p className="mt-2 text-sm leading-6 text-amber-50">
+                {comparison.frictionPoint}
+              </p>
             </div>
           </div>
 
@@ -90,7 +136,7 @@ export default function ComparisonResultCard({
                 {Math.round(comparison.resonanceScore)}%
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Насколько легко вам держать общий ритм общения, ожидания и стиль обратной связи.
+                Насколько легко вам держать общий ритм общения, обратной связи и ожиданий друг от друга.
               </p>
             </div>
 
@@ -102,7 +148,7 @@ export default function ComparisonResultCard({
                 {Math.round(comparison.pairReserveScore)}%
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Запас устойчивости к стрессу, неопределённости и трению до явного конфликта.
+                Запас устойчивости к давлению, неопределённости и накоплению напряжения.
               </p>
             </div>
 
@@ -114,14 +160,14 @@ export default function ComparisonResultCard({
                 {Math.round(comparison.reliabilityScore)}%
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Показывает, насколько согласованно у вас заполнены сами шкалы, а не только итоговые баллы.
+                Насколько согласованно заполнены сами шкалы. Это помогает не переоценивать один голый процент.
               </p>
             </div>
           </div>
 
           <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              Рекомендация по управлению
+              Как этим пользоваться
             </p>
             <p className="mt-3 text-sm leading-7 text-slate-200">
               {comparison.explanation}
@@ -132,7 +178,7 @@ export default function ComparisonResultCard({
         <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
           <p className="font-display text-lg text-white">Подсказки</p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Если между вами может возникнуть напряжение, здесь будут идеи, как его сгладить.
+            Если между вами может появляться напряжение, здесь собраны идеи, как сделать взаимодействие мягче и управляемее.
           </p>
 
           <button

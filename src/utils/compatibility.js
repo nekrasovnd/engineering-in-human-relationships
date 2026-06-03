@@ -1,4 +1,9 @@
-import { buildSystemIndices, FACTOR_KEYS } from '../data/questionnaire';
+import {
+  buildSystemIndices,
+  FACTOR_CONFIG,
+  FACTOR_KEYS,
+  getFactorPoleLabel,
+} from '../data/questionnaire';
 
 const WEIGHTS = {
   neuroticism: 2,
@@ -12,6 +17,9 @@ const WEIGHTS = {
 };
 
 const FACTOR_ORDER = Object.keys(WEIGHTS);
+const FACTOR_META = Object.fromEntries(
+  FACTOR_CONFIG.map((factor) => [factor.key, factor]),
+);
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -46,6 +54,90 @@ function getSystemIndices(profile) {
 
 function getGap(firstValue, secondValue) {
   return Math.abs(firstValue - secondValue);
+}
+
+function getPole(profile, factorKey) {
+  return getFactorPoleLabel(FACTOR_META[factorKey], profile.factorScores[factorKey]);
+}
+
+function buildSupportPoint(firstProfile, secondProfile, metrics) {
+  if (metrics.resonanceScore >= 74) {
+    return 'У вас похожий ритм связи: проще держать общий темп, быстрее сверяться и реже цепляться за сам формат общения.';
+  }
+
+  if (metrics.pairReserveScore >= 70) {
+    return 'Даже под нагрузкой у пары есть запас устойчивости: в напряжении вы скорее сохраните рабочий контакт, чем резко сорвётесь в разнос.';
+  }
+
+  if (metrics.distanceScore >= 72) {
+    return 'Базовые рабочие привычки у вас достаточно близки, поэтому на старте будет легче договориться о ролях и бытовом ритме.';
+  }
+
+  const firstCooperation = getPole(firstProfile, 'cooperation');
+  const secondCooperation = getPole(secondProfile, 'cooperation');
+
+  if (firstCooperation === secondCooperation) {
+    return `У вас есть общая опора в том, как вы относитесь к общему делу: оба ближе к режиму «${firstCooperation}».`;
+  }
+
+  return 'Пара выглядит рабочей не за счёт идеального совпадения, а потому что в ней есть потенциал быстро настроить понятные договорённости.';
+}
+
+function buildFrictionPoint(firstProfile, secondProfile, metrics) {
+  if (
+    metrics.communicationGap >= metrics.structureGap &&
+    metrics.communicationGap >= metrics.stressGap &&
+    metrics.communicationGap > 3.5
+  ) {
+    return `Больше всего трение может идти через ритм связи: ${firstProfile.name} ближе к «${getPole(firstProfile, 'extraversion')}», а ${secondProfile.name} — к «${getPole(secondProfile, 'extraversion')}».`;
+  }
+
+  if (
+    metrics.structureGap >= metrics.communicationGap &&
+    metrics.structureGap >= metrics.stressGap &&
+    metrics.structureGap > 3.5
+  ) {
+    return `Главное расхождение ожидается вокруг рамки и права вести: у вас по-разному устроены «${getPole(firstProfile, 'dominance')} / ${getPole(firstProfile, 'ruleAdaptation')}» и «${getPole(secondProfile, 'dominance')} / ${getPole(secondProfile, 'ruleAdaptation')}».`;
+  }
+
+  if (metrics.stressGap > 3.5) {
+    return `Под нагрузкой вы входите в разные режимы: ${firstProfile.name} чаще уходит в «${getPole(firstProfile, 'neuroticism')} / ${getPole(firstProfile, 'stressResponse')}», а ${secondProfile.name} — в «${getPole(secondProfile, 'neuroticism')} / ${getPole(secondProfile, 'stressResponse')}».`;
+  }
+
+  return 'Резкой зоны трения не видно, но без базовых договорённостей даже хорошая стыковка быстро начинает терять форму.';
+}
+
+function buildPairSummary(
+  compatibility,
+  conflictRisk,
+  resonanceScore,
+  pairReserveScore,
+) {
+  if (compatibility >= 80 && conflictRisk === 'Низкий') {
+    return 'Пара выглядит лёгкой для совместной работы: контакт и бытовой ритм стыкуются без лишнего усилия.';
+  }
+
+  if (pairReserveScore >= 68 && resonanceScore >= 65) {
+    return 'Стыковка хорошая, но держится не на магии, а на том, что вы умеете не разваливаться при первой же нагрузке.';
+  }
+
+  if (conflictRisk === 'Высокий') {
+    return 'Связка может работать только через заранее оговорённые правила, иначе трение быстро пойдёт в открытую.';
+  }
+
+  return 'Связка скорее управляемая: она может быть сильной, если заранее собрать правила общения, ролей и реакции на давление.';
+}
+
+function buildTeamFitLabel(verdict, pairReserveScore) {
+  if (verdict === 'Да') {
+    return 'Можно быстро стыковать';
+  }
+
+  if (verdict === 'Условно' && pairReserveScore >= 55) {
+    return 'Потребуются явные договорённости';
+  }
+
+  return 'Лучше не без рамки';
 }
 
 export function calculateCompatibility(firstProfile, secondProfile) {
@@ -170,19 +262,21 @@ export function calculateCompatibility(firstProfile, secondProfile) {
         ? 'Условно'
         : 'Да';
 
+  const metrics = {
+    communicationGap,
+    structureGap,
+    stressGap,
+    pairReserveScore,
+    reliabilityScore,
+    distanceScore,
+    resonanceScore,
+  };
+
   const explanation = buildManagementRecommendation(
     firstProfile,
     secondProfile,
     conflictRisk,
-    {
-      communicationGap,
-      structureGap,
-      stressGap,
-      pairReserveScore,
-      reliabilityScore,
-      distanceScore,
-      resonanceScore,
-    },
+    metrics,
   );
 
   return {
@@ -197,6 +291,15 @@ export function calculateCompatibility(firstProfile, secondProfile) {
     stressGap: Number(stressGap.toFixed(2)),
     conflictRisk,
     verdict,
+    teamFitLabel: buildTeamFitLabel(verdict, pairReserveScore),
+    pairSummary: buildPairSummary(
+      compatibility,
+      conflictRisk,
+      resonanceScore,
+      pairReserveScore,
+    ),
+    supportPoint: buildSupportPoint(firstProfile, secondProfile, metrics),
+    frictionPoint: buildFrictionPoint(firstProfile, secondProfile, metrics),
     explanation,
   };
 }
@@ -207,36 +310,42 @@ export function buildManagementRecommendation(
   conflictRisk,
   metrics = {},
 ) {
-  const pair = `${firstProfile.name} (${firstProfile.egoState}) и ${secondProfile.name} (${secondProfile.egoState})`;
+  const pair = `${firstProfile.name} и ${secondProfile.name}`;
   const notes = [];
+  const firstContact = getPole(firstProfile, 'extraversion');
+  const secondContact = getPole(secondProfile, 'extraversion');
+  const firstRules = getPole(firstProfile, 'ruleAdaptation');
+  const secondRules = getPole(secondProfile, 'ruleAdaptation');
+  const firstStability = getPole(firstProfile, 'neuroticism');
+  const secondStability = getPole(secondProfile, 'neuroticism');
 
   if (
     firstProfile.egoState === 'Родитель' &&
     secondProfile.egoState === 'Ребёнок'
   ) {
     notes.push(
-      `${pair} дают связку опеки и бунта. ${secondProfile.name} полезны чёткие сроки и короткие задачи, а ${firstProfile.name} лучше не перегружать тотальным контролем.`,
+      `${pair} легко попадают в цикл «давление -> сопротивление». Лучше заранее отделить заботу от контроля, а свободу — от ухода из договорённостей.`,
     );
   } else if (
     firstProfile.egoState === 'Ребёнок' &&
     secondProfile.egoState === 'Родитель'
   ) {
     notes.push(
-      `${pair} часто попадают в цикл “давление -> сопротивление”. Помогает заранее обозначить зоны автономии и критерии результата.`,
+      `${pair} полезно сразу проговорить зоны автономии: одному будет тесно от лишней рамки, второму — тревожно без видимого порядка.`,
     );
   } else if (
     firstProfile.egoState === 'Родитель' &&
     secondProfile.egoState === 'Родитель'
   ) {
     notes.push(
-      `${pair} может бороться за право определять правила. Разделите ответственность и назначьте отдельные контуры принятия решений.`,
+      `${pair} могут быстро начать спорить не о задаче, а о праве задавать рамку. Здесь особенно важно заранее развести решения по зонам ответственности.`,
     );
   } else if (
     firstProfile.egoState === 'Взрослый' ||
     secondProfile.egoState === 'Взрослый'
   ) {
     notes.push(
-      `${pair} легче стабилизируется через факты, роли и письменные договорённости.`,
+      `${pair} легче удерживать в рабочем контуре через факты, роли и короткие фиксации договорённостей.`,
     );
   }
 
@@ -245,47 +354,49 @@ export function buildManagementRecommendation(
     secondProfile.factorScores.feedbackNeed > 7
   ) {
     notes.push(
-      'Полезны короткие регулярные синки: отсутствие обратной связи здесь быстро читается как холодность или недоверие.',
+      'Здесь полезны короткие регулярные сверки: молчание или затяжной ответ слишком легко читаются как отдаление, а не как нейтральная пауза.',
     );
   }
 
-  if (conflictRisk === 'Высокий') {
+  if (metrics.communicationGap > 3.5) {
     notes.push(
-      'Рабочее взаимодействие возможно только при заранее прописанных правилах эскалации, буферах времени и понятных границах решений.',
+      `Ритм связи у вас разный: один ближе к «${firstContact}», другой — к «${secondContact}». Лучше сразу договориться, как быстро отвечать, когда писать, а когда лучше созваниваться.`,
     );
   }
 
-  if (
-    metrics.communicationGap >= metrics.structureGap &&
-    metrics.communicationGap >= metrics.stressGap &&
-    metrics.communicationGap > 3.5
-  ) {
+  if (metrics.structureGap > 3.5) {
     notes.push(
-      'Главный риск здесь не в ценностях, а в контуре связи: заранее задайте ритм коротких синков, формат обратной связи и допустимую задержку ответа.',
+      `Структура ощущается по-разному: одному ближе «${firstRules}», другому — «${secondRules}». Снимите это заранее через роли, границы решений и понятный способ финального выбора.`,
     );
-  } else if (
-    metrics.structureGap >= metrics.communicationGap &&
-    metrics.structureGap >= metrics.stressGap &&
-    metrics.structureGap > 3.5
-  ) {
+  }
+
+  if (metrics.stressGap > 3.5) {
     notes.push(
-      'Главное трение ожидается вокруг правил и права принимать решения. Лучше сразу развести роли, границы полномочий и способ финального выбора.',
-    );
-  } else if (metrics.stressGap > 3.5) {
-    notes.push(
-      'Под нагрузкой вы можете расходиться сильнее, чем в обычной работе. Полезны буферы по срокам, явные точки эскалации и правило паузы перед жёстким ответом.',
+      `Под давлением вы входите в разные режимы устойчивости — «${firstStability}» и «${secondStability}». Поэтому полезны правило паузы, буферы по срокам и понятная эскалация вместо импульсивной перепалки.`,
     );
   }
 
   if (metrics.pairReserveScore < 55) {
     notes.push(
-      'У пары низкий запас устойчивости: без внешней структуры и договорённостей даже обычная неопределённость будет быстро накапливать напряжение.',
+      'У пары небольшой запас устойчивости. Здесь особенно важно не надеяться на «само наладится», а сознательно собирать ритм, обратную связь и рамку взаимодействия.',
+    );
+  }
+
+  if (metrics.reliabilityScore < 55) {
+    notes.push(
+      'Профили лучше читать как рабочую гипотезу, а не как приговор: ответы местами неоднородные, поэтому полезно сверять выводы с реальным поведением.',
+    );
+  }
+
+  if (conflictRisk === 'Высокий') {
+    notes.push(
+      'Без заранее оговорённых правил трение здесь будет расти быстрее обычного. В такой связке особенно важны границы, сроки реакции и понятный способ остановить эскалацию.',
     );
   }
 
   if (notes.length === 0) {
     notes.push(
-      'Пара выглядит управляемой: дайте общую цель, проговорите правила обратной связи и не мешайте естественному распределению ролей.',
+      'Связка выглядит управляемой: вам достаточно зафиксировать базовый ритм общения и не мешать естественному распределению ролей.',
     );
   }
 

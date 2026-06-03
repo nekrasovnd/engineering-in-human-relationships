@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AvatarBadge from './AvatarBadge';
 import BottomNav from './BottomNav';
+import ThemeToggle from './ThemeToggle';
 
 export default function AppShell() {
   const { profile, signOutUser } = useAuth();
@@ -21,14 +22,17 @@ export default function AppShell() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={signOutUser}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white"
-          >
-            <span className="hidden sm:inline">Выйти</span>
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle inline />
+            <button
+              type="button"
+              onClick={signOutUser}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white"
+            >
+              <span className="hidden sm:inline">Выйти</span>
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </header>
 
