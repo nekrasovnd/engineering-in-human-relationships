@@ -17,6 +17,38 @@ import TeamCard from '../components/TeamCard';
 
 const GOAL_OPTIONS = ['Работа', 'Семья', 'Личные отношения'];
 
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back for embedded browser contexts.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  let copied = false;
+
+  try {
+    copied = document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+
+  return copied;
+}
+
 export default function TeamsPage() {
   const location = useLocation();
   const { profile } = useAuth();
@@ -40,6 +72,7 @@ export default function TeamsPage() {
   const [codeInviteLoading, setCodeInviteLoading] = useState(false);
   const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
   const [copiedCodeForTeamId, setCopiedCodeForTeamId] = useState('');
+  const [copyFailedForTeamId, setCopyFailedForTeamId] = useState('');
   const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -69,6 +102,18 @@ export default function TeamsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [copiedCodeForTeamId]);
 
+  useEffect(() => {
+    if (!copyFailedForTeamId) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopyFailedForTeamId('');
+    }, 2600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copyFailedForTeamId]);
+
   const pendingInvites = useMemo(
     () => invites.filter((item) => item.status === 'pending'),
     [invites],
@@ -97,6 +142,7 @@ export default function TeamsPage() {
   const handleCreateTeam = async (event) => {
     event.preventDefault();
     setError('');
+    setCodeSuccess('');
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
@@ -171,7 +217,9 @@ export default function TeamsPage() {
       setCodeInviteLoading(true);
       const result = await requestTeamInviteByCode(codeInviteValue, profile);
       setCodeInviteValue('');
-      setCodeSuccess(`Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`);
+      setCodeSuccess(
+        `Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`,
+      );
     } catch (requestError) {
       if (requestError.message === 'code-not-found') {
         setError('Такой код не найден или уже выключен.');
@@ -207,13 +255,19 @@ export default function TeamsPage() {
   const handleCopyCode = async (teamId, code) => {
     setError('');
     setCodeSuccess('');
+    setCopiedCodeForTeamId('');
+    setCopyFailedForTeamId('');
 
     try {
-      await navigator.clipboard.writeText(code);
+      const copied = await copyTextToClipboard(code);
+
+      if (!copied) {
+        throw new Error('copy-failed');
+      }
+
       setCopiedCodeForTeamId(teamId);
-      setCodeSuccess(`Код ${code} скопирован.`);
     } catch {
-      setError('Не удалось скопировать код. Его можно выделить вручную.');
+      setCopyFailedForTeamId(teamId);
     }
   };
 
@@ -316,7 +370,9 @@ export default function TeamsPage() {
             </p>
 
             {matchesLoading ? (
-              <p className="mt-4 text-sm text-slate-400">Собираем взаимные совпадения...</p>
+              <p className="mt-4 text-sm text-slate-400">
+                Собираем взаимные совпадения...
+              </p>
             ) : mutualMatches.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-sm leading-6 text-slate-400">
                 Пока нет взаимных совпадений. Сначала они появятся в знакомствах, а уже потом здесь можно будет отправить приглашение в команду.
@@ -369,7 +425,9 @@ export default function TeamsPage() {
                 <input
                   type="text"
                   value={codeInviteValue}
-                  onChange={(event) => setCodeInviteValue(event.target.value.toUpperCase())}
+                  onChange={(event) =>
+                    setCodeInviteValue(event.target.value.toUpperCase())
+                  }
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault();
@@ -475,6 +533,10 @@ export default function TeamsPage() {
                           <p className="mt-2 text-sm text-emerald-200">
                             Код скопирован
                           </p>
+                        ) : copyFailedForTeamId === team.id ? (
+                          <p className="mt-2 text-sm text-amber-200">
+                            Не удалось скопировать. Можно выделить вручную.
+                          </p>
                         ) : null}
                       </div>
                       <button
@@ -483,10 +545,16 @@ export default function TeamsPage() {
                         className={`rounded-2xl border px-4 py-3 text-sm transition ${
                           copiedCodeForTeamId === team.id
                             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                            : copyFailedForTeamId === team.id
+                              ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
                             : 'border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white'
                         }`}
                       >
-                        Скопировать код
+                        {copiedCodeForTeamId === team.id
+                          ? 'Скопировано'
+                          : copyFailedForTeamId === team.id
+                            ? 'Не удалось'
+                          : 'Скопировать код'}
                       </button>
                     </div>
                   ) : (
