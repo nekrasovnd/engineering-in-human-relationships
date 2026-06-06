@@ -21,6 +21,10 @@ import {
 } from '../data/questionnaire';
 import { saveProfile } from '../services/firestore';
 import { buildProfileNarrative } from '../utils/profileAnalysis';
+import {
+  canUseDiscover,
+  hasCompletedQuestionnaire,
+} from '../utils/profileState';
 
 const AuthContext = createContext(null);
 
@@ -75,11 +79,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (
-      !user ||
-      !profile?.questionnaireCompleted ||
-      !profile?.discoverVisible
-    ) {
+    if (!user || !canUseDiscover(profile)) {
       return;
     }
 
@@ -111,12 +111,12 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [profile?.discoverVisible, profile?.questionnaireCompleted, user]);
+  }, [profile, user]);
 
   useEffect(() => {
     if (
       !user ||
-      !profile?.questionnaireCompleted ||
+      !hasCompletedQuestionnaire(profile) ||
       !profile?.answers ||
       (profile.factorReliability &&
         profile.systemIndices &&

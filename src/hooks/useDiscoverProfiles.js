@@ -1,53 +1,29 @@
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { collection, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useFirestoreList } from './useFirestoreList';
 import { sanitizeDiscoverProfile } from '../utils/firestoreDocuments';
 
 export function useDiscoverProfiles(currentUserId, options = {}) {
   const { excludeCurrent = false, enabled = true } = options;
-  const [profiles, setProfiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!currentUserId || !enabled) {
-      setProfiles([]);
-      setLoading(false);
-      setError('');
-      return undefined;
-    }
-
-    setLoading(true);
-    setError('');
-
-    const discoverQuery = query(
+  const {
+    items: profiles,
+    loading,
+    error,
+  } = useFirestoreList({
+    enabled: Boolean(currentUserId) && enabled,
+    dependencies: [currentUserId, excludeCurrent, enabled],
+    createQuery: () =>
+      query(
       collection(db, 'discoverProfiles'),
       where('discoverVisible', '==', true),
-    );
-
-    const unsubscribe = onSnapshot(
-      discoverQuery,
-      (snapshot) => {
-        const nextProfiles = snapshot.docs
+      ),
+    mapSnapshot: (snapshot) =>
+      snapshot.docs
           .map((item) => sanitizeDiscoverProfile(item.data()))
           .filter(Boolean)
           .filter((item) => (excludeCurrent ? item.userId !== currentUserId : true))
-          .sort((left, right) =>
-            (left.name || '').localeCompare(right.name || '', 'ru'),
-          );
-
-        setProfiles(nextProfiles);
-        setLoading(false);
-        setError('');
-      },
-      (snapshotError) => {
-        setError(snapshotError.message);
-        setLoading(false);
-      },
-    );
-
-    return unsubscribe;
-  }, [currentUserId, enabled, excludeCurrent]);
+          .sort((left, right) => (left.name || '').localeCompare(right.name || '', 'ru')),
+  });
 
   return { profiles, loading, error };
 }

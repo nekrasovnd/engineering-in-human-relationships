@@ -9,6 +9,7 @@ import {
   ensureTeamJoinCode,
   requestTeamInviteByCode,
 } from '../services/firestore';
+import { canUseDiscover } from '../utils/profileState';
 
 export const GOAL_OPTIONS = [
   'Р Р°Р±РѕС‚Р°',
@@ -85,7 +86,7 @@ export function useTeamsWorkspace(profile, locationState) {
   const { mutualMatches, loading: matchesLoading } = useMutualMatches(
     profile.userId,
     {
-      enabled: profile.discoverVisible,
+      enabled: canUseDiscover(profile),
     },
   );
   const { invites, loading: invitesLoading } = useTeamInvites(profile.userId);

@@ -1,14 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useDiscoverProfiles } from '../hooks/useDiscoverProfiles';
-import { useMutualMatches } from '../hooks/useMutualMatches';
-import {
-  saveMatchDecision,
-  saveProfile,
-  subscribeOwnMatchDecisions,
-} from '../services/firestore';
-import { calculateCompatibility } from '../utils/compatibility';
+import { useDiscoverWorkspace } from '../hooks/useDiscoverWorkspace';
 import { formatEgoStateLabel } from '../utils/egoState';
 import SectionCard from '../components/SectionCard';
 import SwipeDeck from '../components/SwipeDeck';
@@ -16,161 +8,21 @@ import SwipeDeck from '../components/SwipeDeck';
 export default function DiscoverPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [visibilityOverride, setVisibilityOverride] = useState(null);
-  const [visibilityError, setVisibilityError] = useState('');
-  const [visibilityCommitPending, setVisibilityCommitPending] = useState(false);
-  const profileDiscoverVisible = Boolean(profile.discoverVisible);
-  const discoverVisible = visibilityOverride ?? profileDiscoverVisible;
-  const isVisibilitySyncingToProfile =
-    visibilityOverride !== null &&
-    visibilityOverride !== profileDiscoverVisible;
-  const isVisibilityPending =
-    visibilityCommitPending || isVisibilitySyncingToProfile;
-  const discoverEnabled = discoverVisible && !isVisibilityPending;
   const {
-    profiles,
+    discoverVisible,
+    isVisibilityPending,
+    displayError,
     loading,
-    error: discoverError,
-  } = useDiscoverProfiles(profile.userId, {
-    excludeCurrent: true,
-    enabled: discoverEnabled,
-  });
-  const {
     mutualMatches,
-    loading: mutualMatchesLoading,
-    error: mutualMatchesError,
-  } = useMutualMatches(profile.userId, {
-    enabled: discoverEnabled,
-  });
-  const [decisions, setDecisions] = useState([]);
-  const [decisionError, setDecisionError] = useState('');
-  const [busyId, setBusyId] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [matchMessage, setMatchMessage] = useState('');
-
-  const displayError = useMemo(() => {
-    const rawError =
-      visibilityError || decisionError || discoverError || mutualMatchesError;
-
-    if (!rawError) {
-      return '';
-    }
-
-    if (rawError.includes('Missing or insufficient permissions')) {
-      return 'Не удалось загрузить ленту знакомств. Обновите страницу и попробуйте ещё раз.';
-    }
-
-    return rawError;
-  }, [decisionError, discoverError, mutualMatchesError, visibilityError]);
-
-  useEffect(() => {
-    if (
-      !visibilityCommitPending &&
-      visibilityOverride !== null &&
-      visibilityOverride === profileDiscoverVisible
-    ) {
-      setVisibilityOverride(null);
-      setVisibilityError('');
-    }
-  }, [profileDiscoverVisible, visibilityCommitPending, visibilityOverride]);
-
-  useEffect(() => {
-    if (!discoverEnabled) {
-      setDecisions([]);
-      setDecisionError('');
-      return undefined;
-    }
-
-    const unsubscribe = subscribeOwnMatchDecisions(
-      profile.userId,
-      (items) => {
-        setDecisions(items);
-      },
-      () => {
-        setDecisionError('Не удалось загрузить решения по кандидатам.');
-      },
-    );
-
-    return unsubscribe;
-  }, [discoverEnabled, profile.userId]);
-
-  const undecidedProfiles = useMemo(() => {
-    const decidedMap = decisions.reduce(
-      (accumulator, item) => ({
-        ...accumulator,
-        [item.toUid]: item.decision,
-      }),
-      {},
-    );
-
-    return profiles.filter((candidate) => !decidedMap[candidate.userId]);
-  }, [decisions, profiles]);
-
-  useEffect(() => {
-    if (currentIndex > Math.max(undecidedProfiles.length - 1, 0)) {
-      setCurrentIndex(0);
-    }
-  }, [currentIndex, undecidedProfiles.length]);
-
-  const candidate = undecidedProfiles[currentIndex] || null;
-  const comparison = candidate ? calculateCompatibility(profile, candidate) : null;
-
-  const storeDecision = async (decision) => {
-    if (!candidate || !comparison) {
-      return;
-    }
-
-    try {
-      setBusyId(candidate.userId);
-      setDecisionError('');
-      setMatchMessage('');
-
-      await saveMatchDecision({
-        fromUid: profile.userId,
-        toUid: candidate.userId,
-        decision,
-        compatibility: comparison.compatibility,
-        conflictRisk: comparison.conflictRisk,
-      });
-
-      if (
-        decision === 'like' &&
-        mutualMatches.some((item) => item.userId === candidate.userId)
-      ) {
-        setMatchMessage(
-          `Взаимный выбор! Вы и ${candidate.name} уже отметили друг друга. Можно сразу перейти к команде.`,
-        );
-      }
-
-      setCurrentIndex((index) => index + 1);
-    } catch {
-      setDecisionError('Не удалось сохранить решение. Попробуйте ещё раз.');
-    } finally {
-      setBusyId('');
-    }
-  };
-
-  const handleSetDiscoverVisibility = async (nextValue) => {
-    setDecisionError('');
-    setVisibilityError('');
-    setVisibilityOverride(nextValue);
-    setVisibilityCommitPending(true);
-
-    try {
-      await saveProfile(profile.userId, {
-        discoverVisible: nextValue,
-      });
-    } catch {
-      setVisibilityOverride(null);
-      setVisibilityError(
-        nextValue
-          ? 'Не удалось включить видимость профиля.'
-          : 'Не удалось скрыть профиль из знакомств.',
-      );
-    } finally {
-      setVisibilityCommitPending(false);
-    }
-  };
+    mutualMatchesLoading,
+    busyId,
+    matchMessage,
+    undecidedProfiles,
+    candidate,
+    comparison,
+    storeDecision,
+    setDiscoverVisibility,
+  } = useDiscoverWorkspace(profile);
 
   if (!discoverVisible) {
     return (
@@ -188,7 +40,7 @@ export default function DiscoverPage() {
             </p>
             <button
               type="button"
-              onClick={() => handleSetDiscoverVisibility(true)}
+              onClick={() => setDiscoverVisibility(true)}
               disabled={isVisibilityPending}
               className="mt-5 rounded-2xl bg-blue-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -216,7 +68,7 @@ export default function DiscoverPage() {
         action={
           <button
             type="button"
-            onClick={() => handleSetDiscoverVisibility(false)}
+            onClick={() => setDiscoverVisibility(false)}
             disabled={isVisibilityPending}
             className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >

@@ -3,41 +3,12 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMutualMatches } from '../hooks/useMutualMatches';
 import { useTeams } from '../hooks/useTeams';
-import {
-  calculateCompatibility,
-  hasComparableProfileData,
-} from '../utils/compatibility';
+import { calculateCompatibility } from '../utils/compatibility';
+import { mergeComparisonCandidates } from '../utils/comparisonCandidates';
 import { formatEgoStateLabel } from '../utils/egoState';
+import { canUseDiscover } from '../utils/profileState';
 import ComparisonResultCard from '../components/ComparisonResultCard';
 import SectionCard from '../components/SectionCard';
-
-function mergeCandidates(mutualMatches, teams, currentUserId) {
-  const map = new Map();
-
-  mutualMatches.forEach((item) => {
-    map.set(item.userId, item);
-  });
-
-  teams.forEach((team) => {
-    (team.memberSnapshots || []).forEach((member) => {
-      if (!member?.userId || member.userId === currentUserId) {
-        return;
-      }
-
-      if (!hasComparableProfileData(member)) {
-        return;
-      }
-
-      if (!map.has(member.userId)) {
-        map.set(member.userId, member);
-      }
-    });
-  });
-
-  return Array.from(map.values()).sort((left, right) =>
-    (left.name || '').localeCompare(right.name || '', 'ru'),
-  );
-}
 
 export default function ComparePage() {
   const location = useLocation();
@@ -45,13 +16,13 @@ export default function ComparePage() {
   const { mutualMatches, loading: matchesLoading } = useMutualMatches(
     profile.userId,
     {
-      enabled: profile.discoverVisible,
+      enabled: canUseDiscover(profile),
     },
   );
   const { teams, loading: teamsLoading } = useTeams(profile.userId);
   const [selectedId, setSelectedId] = useState('');
   const candidates = useMemo(
-    () => mergeCandidates(mutualMatches, teams, profile.userId),
+    () => mergeComparisonCandidates(mutualMatches, teams, profile.userId),
     [mutualMatches, profile.userId, teams],
   );
 

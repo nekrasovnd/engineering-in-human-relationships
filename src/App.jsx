@@ -10,6 +10,7 @@ import KnowledgeBasePage from './pages/KnowledgeBasePage';
 import ProfilePage from './pages/ProfilePage';
 import QuestionnairePage from './pages/QuestionnairePage';
 import TeamsPage from './pages/TeamsPage';
+import { hasCompletedQuestionnaire } from './utils/profileState';
 
 const APP_LOADING_LABEL = 'Секунду, всё почти готово...';
 
@@ -24,7 +25,7 @@ function AuthOnlyRoute({ requireProfile = false }) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (requireProfile && !profile?.questionnaireCompleted) {
+  if (requireProfile && !hasCompletedQuestionnaire(profile)) {
     return <Navigate to="/questionnaire" replace />;
   }
 
@@ -42,7 +43,7 @@ function AuthPageGate() {
     return <AuthPage />;
   }
 
-  if (!profile?.questionnaireCompleted) {
+  if (!hasCompletedQuestionnaire(profile)) {
     return <Navigate to="/questionnaire" replace />;
   }
 
@@ -61,7 +62,7 @@ function RootRedirect() {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  return profile?.questionnaireCompleted ? (
+  return hasCompletedQuestionnaire(profile) ? (
     <Navigate to="/profile" replace />
   ) : (
     <Navigate to="/questionnaire" replace />
