@@ -3,6 +3,7 @@ import {
   subscribeIncomingMatchDecisions,
   subscribeOwnMatchDecisions,
 } from '../services/firestore';
+import { sanitizeMatchAction } from '../utils/firestoreDocuments';
 import { useDiscoverProfiles } from './useDiscoverProfiles';
 
 export function useMutualMatches(currentUserId, options = {}) {
@@ -44,7 +45,7 @@ export function useMutualMatches(currentUserId, options = {}) {
       currentUserId,
       (items) => {
         outgoingLoaded = true;
-        setOutgoing(items);
+        setOutgoing(items.map(sanitizeMatchAction).filter(Boolean));
         setError('');
         markLoaded();
       },
@@ -59,7 +60,7 @@ export function useMutualMatches(currentUserId, options = {}) {
       currentUserId,
       (items) => {
         incomingLoaded = true;
-        setIncoming(items);
+        setIncoming(items.map(sanitizeMatchAction).filter(Boolean));
         setError('');
         markLoaded();
       },

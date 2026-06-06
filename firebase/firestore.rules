@@ -24,6 +24,75 @@ service cloud.firestore {
         && currentUserProfile().data.discoverVisible == true;
     }
 
+    function numberInRange(value, minValue, maxValue) {
+      return (
+          value is int
+          || value is float
+        )
+        && value >= minValue
+        && value <= maxValue;
+    }
+
+    function validFactorScores(scores) {
+      return scores is map
+        && scores.keys().hasOnly([
+          'neuroticism',
+          'extraversion',
+          'dominance',
+          'ruleAdaptation',
+          'empathy',
+          'stressResponse',
+          'feedbackNeed',
+          'cooperation',
+        ])
+        && numberInRange(scores.neuroticism, 0, 10)
+        && numberInRange(scores.extraversion, 0, 10)
+        && numberInRange(scores.dominance, 0, 10)
+        && numberInRange(scores.ruleAdaptation, 0, 10)
+        && numberInRange(scores.empathy, 0, 10)
+        && numberInRange(scores.stressResponse, 0, 10)
+        && numberInRange(scores.feedbackNeed, 0, 10)
+        && numberInRange(scores.cooperation, 0, 10);
+    }
+
+    function validFactorReliability(reliability) {
+      return reliability is map
+        && reliability.keys().hasOnly([
+          'neuroticism',
+          'extraversion',
+          'dominance',
+          'ruleAdaptation',
+          'empathy',
+          'stressResponse',
+          'feedbackNeed',
+          'cooperation',
+        ])
+        && numberInRange(reliability.neuroticism, 0, 10)
+        && numberInRange(reliability.extraversion, 0, 10)
+        && numberInRange(reliability.dominance, 0, 10)
+        && numberInRange(reliability.ruleAdaptation, 0, 10)
+        && numberInRange(reliability.empathy, 0, 10)
+        && numberInRange(reliability.stressResponse, 0, 10)
+        && numberInRange(reliability.feedbackNeed, 0, 10)
+        && numberInRange(reliability.cooperation, 0, 10);
+    }
+
+    function validSystemIndices(indices) {
+      return indices is map
+        && indices.keys().hasOnly([
+          'conflictLoad',
+          'teamStabilityReserve',
+          'communicationClarity',
+          'autonomyBalance',
+          'profileIntegrity',
+        ])
+        && numberInRange(indices.conflictLoad, 0, 10)
+        && numberInRange(indices.teamStabilityReserve, 0, 10)
+        && numberInRange(indices.communicationClarity, 0, 10)
+        && numberInRange(indices.autonomyBalance, 0, 10)
+        && numberInRange(indices.profileIntegrity, 0, 10);
+    }
+
     function validDiscoverProfileWrite(userId) {
       return request.resource.data.keys().hasOnly([
           'userId',
@@ -44,8 +113,23 @@ service cloud.firestore {
         ])
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.userId == userId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.age is int
+        && request.resource.data.age >= 16
+        && request.resource.data.age <= 90
+        && request.resource.data.gender is string
+        && request.resource.data.avatarInitials is string
+        && request.resource.data.avatarUrl is string
+        && validFactorScores(request.resource.data.factorScores)
+        && validFactorReliability(request.resource.data.factorReliability)
+        && request.resource.data.egoState is string
+        && validSystemIndices(request.resource.data.systemIndices)
+        && numberInRange(request.resource.data.profileIntegrity, 0, 10)
         && request.resource.data.questionnaireCompleted == true
-        && request.resource.data.discoverVisible == true;
+        && request.resource.data.discoverVisible == true
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
     }
 
     function pendingInvite(teamId) {
@@ -125,11 +209,16 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.memberIds
         && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
         && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.joinCode == resource.data.joinCode
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.name == resource.data.name
         && request.resource.data.description == resource.data.description
         && request.resource.data.goal == resource.data.goal
         && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.memberSnapshots is list
+        && resource.data.memberSnapshots is list
+        && request.resource.data.memberSnapshots.size() == resource.data.memberSnapshots.size() + 1
+        && request.resource.data.updatedAt is string
         && request.resource.data
           .diff(resource.data)
           .affectedKeys()
@@ -180,6 +269,133 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
     }
 
+    function validTeamCreate() {
+      return request.resource.data.keys().hasOnly([
+          'name',
+          'description',
+          'goal',
+          'joinCode',
+          'createdBy',
+          'memberIds',
+          'memberSnapshots',
+          'analysis',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.description is string
+        && request.resource.data.goal is string
+        && request.resource.data.joinCode is string
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == 1
+        && request.resource.data.memberIds[0] == request.auth.uid
+        && request.resource.data.memberSnapshots is list
+        && request.resource.data.memberSnapshots.size() == 1
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
+    }
+
+    function validTeamCoreUpdate() {
+      return request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.goal == resource.data.goal
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function canRefreshOwnTeamSnapshot() {
+      return request.auth.uid in resource.data.memberIds
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.joinCode == resource.data.joinCode
+        && request.resource.data.memberSnapshots is list
+        && resource.data.memberSnapshots is list
+        && request.resource.data.memberSnapshots.size() == resource.data.memberSnapshots.size()
+        && request.resource.data.updatedAt is string
+        && validTeamCoreUpdate()
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['memberSnapshots', 'analysis', 'updatedAt']);
+    }
+
+    function canManageTeamJoinCode() {
+      return request.auth.uid == resource.data.createdBy
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.memberSnapshots == resource.data.memberSnapshots
+        && request.resource.data.analysis == resource.data.analysis
+        && request.resource.data.joinCode is string
+        && request.resource.data.updatedAt is string
+        && validTeamCoreUpdate()
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['joinCode', 'updatedAt']);
+    }
+
+    function validTeamJoinCodeCreate(code) {
+      return request.resource.data.keys().hasOnly([
+          'code',
+          'teamId',
+          'teamName',
+          'teamDescription',
+          'teamGoal',
+          'createdBy',
+          'createdByName',
+          'createdByAvatarInitials',
+          'active',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.code == code
+        && request.resource.data.teamId is string
+        && request.resource.data.teamName is string
+        && request.resource.data.teamDescription is string
+        && request.resource.data.teamGoal is string
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByName is string
+        && request.resource.data.createdByAvatarInitials is string
+        && request.resource.data.active == true
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string
+        && getAfter(
+          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
+        ).data.createdBy == request.auth.uid;
+    }
+
+    function canUpdateTeamJoinCode() {
+      return resource.data.createdBy == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'code',
+          'teamId',
+          'teamName',
+          'teamDescription',
+          'teamGoal',
+          'createdBy',
+          'createdByName',
+          'createdByAvatarInitials',
+          'active',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.teamName == resource.data.teamName
+        && request.resource.data.teamDescription == resource.data.teamDescription
+        && request.resource.data.teamGoal == resource.data.teamGoal
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByName == resource.data.createdByName
+        && request.resource.data.createdByAvatarInitials == resource.data.createdByAvatarInitials
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.active is bool
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['active', 'updatedAt']);
+    }
+
     match /profiles/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
@@ -206,13 +422,11 @@ service cloud.firestore {
           || canReadInvitedTeam(teamId)
         );
       allow create: if isSignedIn()
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.memberIds.size() == 1
-        && request.resource.data.memberIds[0] == request.auth.uid;
+        && validTeamCreate();
       allow update: if isSignedIn()
         && (
-          (request.auth.uid in resource.data.memberIds
-            && request.auth.uid in request.resource.data.memberIds)
+          canRefreshOwnTeamSnapshot()
+          || canManageTeamJoinCode()
           || canAcceptInvite(teamId)
         );
       allow delete: if isSignedIn() && request.auth.uid == resource.data.createdBy;
@@ -262,27 +476,10 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if false;
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly([
-          'code',
-          'teamId',
-          'teamName',
-          'teamDescription',
-          'teamGoal',
-          'createdBy',
-          'createdByName',
-          'createdByAvatarInitials',
-          'active',
-          'createdAt',
-          'updatedAt',
-        ])
-        && request.resource.data.code == code
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.active == true
-        && getAfter(
-          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
-        ).data.createdBy == request.auth.uid;
-      allow update, delete: if isSignedIn()
-        && resource.data.createdBy == request.auth.uid;
+        && validTeamJoinCodeCreate(code);
+      allow update: if isSignedIn()
+        && canUpdateTeamJoinCode();
+      allow delete: if false;
     }
 
     match /matchActions/{actionId} {

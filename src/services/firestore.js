@@ -10,13 +10,22 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import {
   buildTeamSummary,
   findMostConflictPair,
   getRecommendedRoles,
 } from '../utils/teamAnalysis';
 import { hasComparableProfileData } from '../utils/compatibility';
+import {
+  sanitizeComparableProfile,
+  sanitizeDiscoverProfile,
+  sanitizeFactorReliability,
+  sanitizeFactorScores,
+  sanitizeMatchAction,
+  sanitizeSystemIndices,
+  sanitizeTeam,
+} from '../utils/firestoreDocuments';
 
 const nowIso = () => new Date().toISOString();
 const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -47,26 +56,133 @@ function pickProfileFields(profile, keys) {
   }, {});
 }
 
+function assertCurrentUser(expectedUserId) {
+  const currentUserId = auth.currentUser?.uid;
+
+  if (!currentUserId || currentUserId !== expectedUserId) {
+    throw new Error('auth-user-mismatch');
+  }
+}
+
+function sanitizeProfilePatch(payload = {}) {
+  const nextPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+
+  if (Object.hasOwn(nextPayload, 'name')) {
+    nextPayload.name = String(nextPayload.name || '').trim();
+  }
+
+  if (Object.hasOwn(nextPayload, 'gender')) {
+    nextPayload.gender = String(nextPayload.gender || '').trim();
+  }
+
+  if (Object.hasOwn(nextPayload, 'avatarInitials')) {
+    nextPayload.avatarInitials = String(nextPayload.avatarInitials || '').trim();
+  }
+
+  if (Object.hasOwn(nextPayload, 'avatarUrl')) {
+    nextPayload.avatarUrl = String(nextPayload.avatarUrl || '').trim();
+  }
+
+  if (Object.hasOwn(nextPayload, 'age')) {
+    const normalizedAge = Number(nextPayload.age);
+
+    if (Number.isInteger(normalizedAge) && normalizedAge >= 16 && normalizedAge <= 90) {
+      nextPayload.age = normalizedAge;
+    } else {
+      delete nextPayload.age;
+    }
+  }
+
+  if (Object.hasOwn(nextPayload, 'discoverVisible')) {
+    nextPayload.discoverVisible = nextPayload.discoverVisible === true;
+  }
+
+  if (Object.hasOwn(nextPayload, 'questionnaireCompleted')) {
+    nextPayload.questionnaireCompleted = nextPayload.questionnaireCompleted === true;
+  }
+
+  if (Object.hasOwn(nextPayload, 'factorScores')) {
+    const normalizedScores = sanitizeFactorScores(nextPayload.factorScores);
+
+    if (normalizedScores) {
+      nextPayload.factorScores = normalizedScores;
+    } else {
+      delete nextPayload.factorScores;
+    }
+  }
+
+  if (Object.hasOwn(nextPayload, 'factorReliability')) {
+    const normalizedReliability = sanitizeFactorReliability(
+      nextPayload.factorReliability,
+    );
+
+    if (normalizedReliability) {
+      nextPayload.factorReliability = normalizedReliability;
+    } else {
+      delete nextPayload.factorReliability;
+    }
+  }
+
+  if (Object.hasOwn(nextPayload, 'systemIndices')) {
+    const normalizedIndices = sanitizeSystemIndices(
+      nextPayload.systemIndices,
+      nextPayload.factorScores,
+      nextPayload.factorReliability,
+    );
+
+    if (normalizedIndices) {
+      nextPayload.systemIndices = normalizedIndices;
+    } else {
+      delete nextPayload.systemIndices;
+    }
+  }
+
+  if (Object.hasOwn(nextPayload, 'answers')) {
+    if (!nextPayload.answers || typeof nextPayload.answers !== 'object') {
+      delete nextPayload.answers;
+    } else {
+      nextPayload.answers = Object.fromEntries(
+        Object.entries(nextPayload.answers).filter(([, value]) =>
+          Number.isFinite(Number(value)),
+        ),
+      );
+    }
+  }
+
+  return nextPayload;
+}
+
 function buildMemberSnapshot(profile) {
+  const normalizedProfile = sanitizeComparableProfile(profile);
+
+  if (!normalizedProfile) {
+    return null;
+  }
+
   return {
-    userId: profile.userId,
-    name: profile.name,
-    avatarInitials: profile.avatarInitials,
-    avatarUrl: profile.avatarUrl || '',
-    egoState: profile.egoState,
-    factorScores: profile.factorScores,
-    factorReliability: profile.factorReliability,
-    systemIndices: profile.systemIndices,
-    profileIntegrity: profile.profileIntegrity,
+    userId: normalizedProfile.userId,
+    name: normalizedProfile.name,
+    avatarInitials: normalizedProfile.avatarInitials,
+    avatarUrl: normalizedProfile.avatarUrl || '',
+    egoState: normalizedProfile.egoState,
+    factorScores: normalizedProfile.factorScores,
+    factorReliability: normalizedProfile.factorReliability,
+    systemIndices: normalizedProfile.systemIndices,
+    profileIntegrity: normalizedProfile.profileIntegrity,
   };
 }
 
 function buildTeamAnalysis(memberProfiles) {
-  const roles = getRecommendedRoles(memberProfiles);
-  const conflictPair = findMostConflictPair(memberProfiles);
+  const comparableProfiles = memberProfiles
+    .map((item) => sanitizeComparableProfile(item))
+    .filter(Boolean);
+  const roles = getRecommendedRoles(comparableProfiles);
+  const conflictPair = findMostConflictPair(comparableProfiles);
 
   return {
-    summary: buildTeamSummary(memberProfiles),
+    summary: buildTeamSummary(comparableProfiles),
     roles,
     conflictPair: conflictPair
       ? {
@@ -161,12 +277,9 @@ function normalizeMatchDecisionPayload(payload) {
 }
 
 async function syncProfileAcrossTeams(userId, profile, updatedAt) {
-  if (
-    !profile.questionnaireCompleted ||
-    !profile.factorScores ||
-    !profile.factorReliability ||
-    !profile.systemIndices
-  ) {
+  const ownSnapshot = buildMemberSnapshot(profile);
+
+  if (!ownSnapshot || !profile.questionnaireCompleted) {
     return;
   }
 
@@ -181,11 +294,10 @@ async function syncProfileAcrossTeams(userId, profile, updatedAt) {
     return;
   }
 
-  const ownSnapshot = buildMemberSnapshot(profile);
   const batch = writeBatch(db);
 
   teamsSnapshot.docs.forEach((teamDocument) => {
-    const team = teamDocument.data();
+    const team = sanitizeTeam(teamDocument.data(), teamDocument.id);
     const nextMemberSnapshots = [
       ...(team.memberSnapshots || []).filter((item) => item.userId !== userId),
       ownSnapshot,
@@ -206,6 +318,8 @@ async function syncProfileAcrossTeams(userId, profile, updatedAt) {
 }
 
 export async function saveProfile(userId, payload) {
+  assertCurrentUser(userId);
+
   const privateRef = doc(db, 'profiles', userId);
   const discoverRef = doc(db, 'discoverProfiles', userId);
   const [privateSnapshot, discoverSnapshot] = await Promise.all([
@@ -218,14 +332,15 @@ export async function saveProfile(userId, payload) {
     discoverSnapshot.data()?.createdAt ||
     nowIso();
   const updatedAt = nowIso();
+  const nextPayload = sanitizeProfilePatch(payload);
   const nextPrivateProfile = {
     ...(privateSnapshot.data() || {}),
     userId,
     discoverVisible:
-      payload.discoverVisible ??
+      nextPayload.discoverVisible ??
       privateSnapshot.data()?.discoverVisible ??
       false,
-    ...payload,
+    ...nextPayload,
     createdAt,
     updatedAt,
   };
@@ -239,16 +354,21 @@ export async function saveProfile(userId, payload) {
   ) {
     const discoverCreatedAt =
       discoverSnapshot.data()?.createdAt || createdAt;
+    const discoverProfile = sanitizeDiscoverProfile(nextPrivateProfile);
 
-    batch.set(
-      discoverRef,
-      buildDiscoverProfile(
-        nextPrivateProfile,
-        discoverCreatedAt,
-        updatedAt,
-      ),
-      { merge: true },
-    );
+    if (discoverProfile) {
+      batch.set(
+        discoverRef,
+        buildDiscoverProfile(
+          discoverProfile,
+          discoverCreatedAt,
+          updatedAt,
+        ),
+        { merge: true },
+      );
+    } else {
+      batch.delete(discoverRef);
+    }
   } else {
     batch.delete(discoverRef);
   }
@@ -258,18 +378,21 @@ export async function saveProfile(userId, payload) {
 }
 
 export async function saveQuestionnaireDraft(userId, payload) {
+  assertCurrentUser(userId);
+
   const privateRef = doc(db, 'profiles', userId);
   const privateSnapshot = await getDoc(privateRef);
   const currentProfile = privateSnapshot.data() || {};
   const createdAt = currentProfile.createdAt || nowIso();
   const updatedAt = nowIso();
+  const nextPayload = sanitizeProfilePatch(payload);
 
   await setDoc(
     privateRef,
     {
       ...currentProfile,
       userId,
-      ...payload,
+      ...nextPayload,
       questionnaireCompleted: currentProfile.questionnaireCompleted || false,
       createdAt,
       updatedAt,
@@ -285,6 +408,8 @@ export async function createTeamWithInvites({
   creatorProfile,
   invitedProfiles = [],
 }) {
+  assertCurrentUser(creatorProfile.userId);
+
   if (!hasComparableProfileData(creatorProfile)) {
     throw new Error('invalid-profile-data');
   }
@@ -294,9 +419,13 @@ export async function createTeamWithInvites({
   const joinCode = await reserveUniqueTeamJoinCode();
   const joinCodeRef = doc(db, 'teamJoinCodes', joinCode);
   const creatorSnapshot = buildMemberSnapshot(creatorProfile);
+  if (!creatorSnapshot) {
+    throw new Error('invalid-profile-data');
+  }
   const uniqueInvitedProfiles = invitedProfiles.filter(
     (item, index, items) =>
       item.userId !== creatorProfile.userId &&
+      hasComparableProfileData(item) &&
       items.findIndex((candidate) => candidate.userId === item.userId) === index,
   );
 
@@ -354,6 +483,12 @@ export async function createTeamWithInvites({
 }
 
 export async function ensureTeamJoinCode(team, creatorProfile) {
+  assertCurrentUser(creatorProfile.userId);
+
+  if (team.createdBy !== creatorProfile.userId) {
+    throw new Error('team-owner-mismatch');
+  }
+
   if (team.joinCode) {
     return team.joinCode;
   }
@@ -391,6 +526,8 @@ export async function ensureTeamJoinCode(team, creatorProfile) {
 }
 
 export async function requestTeamInviteByCode(code, profile) {
+  assertCurrentUser(profile.userId);
+
   if (!hasComparableProfileData(profile)) {
     throw new Error('invalid-profile-data');
   }
@@ -464,6 +601,8 @@ export async function requestTeamInviteByCode(code, profile) {
 }
 
 export async function acceptTeamInvite(inviteId, profile) {
+  assertCurrentUser(profile.userId);
+
   if (!hasComparableProfileData(profile)) {
     throw new Error('invalid-profile-data');
   }
@@ -476,6 +615,10 @@ export async function acceptTeamInvite(inviteId, profile) {
   }
 
   const invite = inviteSnapshot.data();
+  if (invite.toUid !== profile.userId || invite.status !== 'pending') {
+    throw new Error('invalid-invite-state');
+  }
+
   const teamRef = doc(db, 'teams', invite.teamId);
   const teamSnapshot = await getDoc(teamRef);
 
@@ -483,9 +626,12 @@ export async function acceptTeamInvite(inviteId, profile) {
     throw new Error('Team not found');
   }
 
-  const team = teamSnapshot.data();
+  const team = sanitizeTeam(teamSnapshot.data(), teamSnapshot.id);
   const currentMemberSnapshots = team.memberSnapshots || [];
   const ownSnapshot = buildMemberSnapshot(profile);
+  if (!ownSnapshot) {
+    throw new Error('invalid-profile-data');
+  }
   const nextMemberSnapshots = [
     ...currentMemberSnapshots.filter((item) => item.userId !== profile.userId),
     ownSnapshot,
@@ -527,6 +673,15 @@ export async function declineTeamInvite(inviteId) {
     throw new Error('Invite not found');
   }
 
+  const invite = inviteSnapshot.data();
+
+  if (
+    invite.toUid !== auth.currentUser?.uid ||
+    invite.status !== 'pending'
+  ) {
+    throw new Error('invalid-invite-state');
+  }
+
   await setDoc(
     inviteRef,
     {
@@ -539,6 +694,8 @@ export async function declineTeamInvite(inviteId) {
 }
 
 export async function saveMatchDecision(payload) {
+  assertCurrentUser(payload?.fromUid);
+
   const normalizedPayload = normalizeMatchDecisionPayload(payload);
 
   if (
@@ -582,7 +739,7 @@ export function subscribeOwnMatchDecisions(userId, callback, onError) {
   return onSnapshot(
     matchQuery,
     (snapshot) => {
-      callback(snapshot.docs.map((item) => item.data()));
+      callback(snapshot.docs.map((item) => sanitizeMatchAction(item.data())).filter(Boolean));
     },
     onError,
   );
@@ -597,7 +754,7 @@ export function subscribeIncomingMatchDecisions(userId, callback, onError) {
   return onSnapshot(
     matchQuery,
     (snapshot) => {
-      callback(snapshot.docs.map((item) => item.data()));
+      callback(snapshot.docs.map((item) => sanitizeMatchAction(item.data())).filter(Boolean));
     },
     onError,
   );

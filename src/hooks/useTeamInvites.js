@@ -1,6 +1,7 @@
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
+import { sanitizeTeamInvite } from '../utils/firestoreDocuments';
 
 export function useTeamInvites(userId) {
   const [invites, setInvites] = useState([]);
@@ -27,7 +28,8 @@ export function useTeamInvites(userId) {
       invitesQuery,
       (snapshot) => {
         const nextInvites = snapshot.docs
-          .map((item) => ({ id: item.id, ...item.data() }))
+          .map((item) => sanitizeTeamInvite(item.data(), item.id))
+          .filter(Boolean)
           .sort((left, right) =>
             (right.createdAt || '').localeCompare(left.createdAt || ''),
           );

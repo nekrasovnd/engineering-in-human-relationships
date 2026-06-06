@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -27,6 +28,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const discoverSyncRef = useRef('');
+  const migrationSyncRef = useRef('');
 
   useEffect(() => {
     let unsubscribeProfile = null;
@@ -81,12 +84,25 @@ export function AuthProvider({ children }) {
     }
 
     let cancelled = false;
+    const syncKey = `${user.uid}:discover-profile`;
+
+    if (discoverSyncRef.current === syncKey) {
+      return undefined;
+    }
 
     const ensureDiscoverProfile = async () => {
-      const discoverSnapshot = await getDoc(doc(db, 'discoverProfiles', user.uid));
+      discoverSyncRef.current = syncKey;
 
-      if (!cancelled && !discoverSnapshot.exists()) {
-        await saveProfile(user.uid, {});
+      try {
+        const discoverSnapshot = await getDoc(doc(db, 'discoverProfiles', user.uid));
+
+        if (!cancelled && !discoverSnapshot.exists()) {
+          await saveProfile(user.uid, {});
+        }
+      } finally {
+        if (discoverSyncRef.current === syncKey) {
+          discoverSyncRef.current = '';
+        }
       }
     };
 
@@ -109,27 +125,41 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    const migrateProfileModel = async () => {
-      const result = calculateQuestionnaireResult(profile.answers);
-      const nextProfile = {
-        ...profile,
-        factorScores: result.factorScores,
-        factorReliability: result.factorReliability,
-        egoState: result.egoState,
-        systemIndices: result.systemIndices,
-        profileIntegrity: result.profileIntegrity,
-        psychologicalVector50: result.psychologicalVector50,
-      };
+    const migrationKey = `${user.uid}:profile-migration`;
 
-      await saveProfile(user.uid, {
-        factorScores: result.factorScores,
-        factorReliability: result.factorReliability,
-        egoState: result.egoState,
-        systemIndices: result.systemIndices,
-        profileIntegrity: result.profileIntegrity,
-        psychologicalVector50: result.psychologicalVector50,
-        profileNarrative: buildProfileNarrative(nextProfile),
-      });
+    if (migrationSyncRef.current === migrationKey) {
+      return;
+    }
+
+    const migrateProfileModel = async () => {
+      migrationSyncRef.current = migrationKey;
+
+      try {
+        const result = calculateQuestionnaireResult(profile.answers);
+        const nextProfile = {
+          ...profile,
+          factorScores: result.factorScores,
+          factorReliability: result.factorReliability,
+          egoState: result.egoState,
+          systemIndices: result.systemIndices,
+          profileIntegrity: result.profileIntegrity,
+          psychologicalVector50: result.psychologicalVector50,
+        };
+
+        await saveProfile(user.uid, {
+          factorScores: result.factorScores,
+          factorReliability: result.factorReliability,
+          egoState: result.egoState,
+          systemIndices: result.systemIndices,
+          profileIntegrity: result.profileIntegrity,
+          psychologicalVector50: result.psychologicalVector50,
+          profileNarrative: buildProfileNarrative(nextProfile),
+        });
+      } finally {
+        if (migrationSyncRef.current === migrationKey) {
+          migrationSyncRef.current = '';
+        }
+      }
     };
 
     migrateProfileModel().catch(() => {});
