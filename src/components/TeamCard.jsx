@@ -4,14 +4,16 @@ import {
   getRecommendedRoles,
 } from '../utils/teamAnalysis';
 import { formatEgoStateLabel } from '../utils/egoState';
+import { hasComparableProfileData } from '../utils/compatibility';
 import AvatarBadge from './AvatarBadge';
 import RadarProfileChart from './RadarProfileChart';
 import SectionCard from './SectionCard';
 
 export default function TeamCard({ team, memberProfiles }) {
-  const conflictPair = findMostConflictPair(memberProfiles);
-  const roles = getRecommendedRoles(memberProfiles);
-  const summary = buildTeamSummary(memberProfiles);
+  const validMemberProfiles = memberProfiles.filter(hasComparableProfileData);
+  const conflictPair = findMostConflictPair(validMemberProfiles);
+  const roles = getRecommendedRoles(validMemberProfiles);
+  const summary = buildTeamSummary(validMemberProfiles);
 
   return (
     <SectionCard
@@ -51,7 +53,7 @@ export default function TeamCard({ team, memberProfiles }) {
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {memberProfiles.map((member) => (
+            {validMemberProfiles.map((member) => (
               <div
                 key={member.userId}
                 className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4"

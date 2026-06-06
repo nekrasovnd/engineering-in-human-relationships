@@ -29,6 +29,9 @@ export function useMutualMatches(currentUserId, options = {}) {
       return undefined;
     }
 
+    setMatchLoading(true);
+    setError('');
+
     let outgoingLoaded = false;
     let incomingLoaded = false;
     const markLoaded = () => {

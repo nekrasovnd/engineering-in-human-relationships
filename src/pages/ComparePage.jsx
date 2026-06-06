@@ -3,7 +3,10 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMutualMatches } from '../hooks/useMutualMatches';
 import { useTeams } from '../hooks/useTeams';
-import { calculateCompatibility } from '../utils/compatibility';
+import {
+  calculateCompatibility,
+  hasComparableProfileData,
+} from '../utils/compatibility';
 import { formatEgoStateLabel } from '../utils/egoState';
 import ComparisonResultCard from '../components/ComparisonResultCard';
 import SectionCard from '../components/SectionCard';
@@ -18,6 +21,10 @@ function mergeCandidates(mutualMatches, teams, currentUserId) {
   teams.forEach((team) => {
     (team.memberSnapshots || []).forEach((member) => {
       if (!member?.userId || member.userId === currentUserId) {
+        return;
+      }
+
+      if (!hasComparableProfileData(member)) {
         return;
       }
 

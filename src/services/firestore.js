@@ -16,6 +16,7 @@ import {
   findMostConflictPair,
   getRecommendedRoles,
 } from '../utils/teamAnalysis';
+import { hasComparableProfileData } from '../utils/compatibility';
 
 const nowIso = () => new Date().toISOString();
 const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -138,6 +139,24 @@ function buildDiscoverProfile(profile, createdAt, updatedAt) {
     discoverVisible: true,
     createdAt,
     updatedAt,
+  };
+}
+
+function normalizeMatchDecisionPayload(payload) {
+  const decision = payload?.decision === 'like' ? 'like' : 'pass';
+  const compatibility = Number(payload?.compatibility);
+
+  return {
+    fromUid: String(payload?.fromUid || ''),
+    toUid: String(payload?.toUid || ''),
+    decision,
+    compatibility: Number.isFinite(compatibility)
+      ? Math.min(100, Math.max(0, Math.round(compatibility)))
+      : 0,
+    conflictRisk:
+      typeof payload?.conflictRisk === 'string' && payload.conflictRisk.trim()
+        ? payload.conflictRisk.trim()
+        : 'unknown',
   };
 }
 
@@ -266,6 +285,10 @@ export async function createTeamWithInvites({
   creatorProfile,
   invitedProfiles = [],
 }) {
+  if (!hasComparableProfileData(creatorProfile)) {
+    throw new Error('invalid-profile-data');
+  }
+
   const timestamp = nowIso();
   const teamRef = doc(collection(db, 'teams'));
   const joinCode = await reserveUniqueTeamJoinCode();
@@ -368,6 +391,10 @@ export async function ensureTeamJoinCode(team, creatorProfile) {
 }
 
 export async function requestTeamInviteByCode(code, profile) {
+  if (!hasComparableProfileData(profile)) {
+    throw new Error('invalid-profile-data');
+  }
+
   const normalizedCode = normalizeTeamJoinCode(code);
 
   if (normalizedCode.length < 6) {
@@ -437,6 +464,10 @@ export async function requestTeamInviteByCode(code, profile) {
 }
 
 export async function acceptTeamInvite(inviteId, profile) {
+  if (!hasComparableProfileData(profile)) {
+    throw new Error('invalid-profile-data');
+  }
+
   const inviteRef = doc(db, 'teamInvites', inviteId);
   const inviteSnapshot = await getDoc(inviteRef);
 
@@ -508,7 +539,17 @@ export async function declineTeamInvite(inviteId) {
 }
 
 export async function saveMatchDecision(payload) {
-  const actionId = `${payload.fromUid}_${payload.toUid}`;
+  const normalizedPayload = normalizeMatchDecisionPayload(payload);
+
+  if (
+    !normalizedPayload.fromUid ||
+    !normalizedPayload.toUid ||
+    normalizedPayload.fromUid === normalizedPayload.toUid
+  ) {
+    throw new Error('invalid-match-action');
+  }
+
+  const actionId = `${normalizedPayload.fromUid}_${normalizedPayload.toUid}`;
   const actionRef = doc(db, 'matchActions', actionId);
   const existingSnapshot = await getDoc(actionRef);
   const createdAt = existingSnapshot.data()?.createdAt || nowIso();
@@ -517,7 +558,7 @@ export async function saveMatchDecision(payload) {
     actionRef,
     {
       id: actionId,
-      ...payload,
+      ...normalizedPayload,
       updatedAt: nowIso(),
       createdAt,
     },

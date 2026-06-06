@@ -15,6 +15,9 @@ export function useTeamInvites(userId) {
       return undefined;
     }
 
+    setLoading(true);
+    setError('');
+
     const invitesQuery = query(
       collection(db, 'teamInvites'),
       where('toUid', '==', userId),
@@ -25,7 +28,9 @@ export function useTeamInvites(userId) {
       (snapshot) => {
         const nextInvites = snapshot.docs
           .map((item) => ({ id: item.id, ...item.data() }))
-          .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+          .sort((left, right) =>
+            (right.createdAt || '').localeCompare(left.createdAt || ''),
+          );
 
         setInvites(nextInvites);
         setLoading(false);

@@ -21,6 +21,12 @@ const FACTOR_META = Object.fromEntries(
   FACTOR_CONFIG.map((factor) => [factor.key, factor]),
 );
 
+export function hasComparableProfileData(profile) {
+  return FACTOR_ORDER.every(
+    (key) => typeof profile?.factorScores?.[key] === 'number',
+  );
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -141,6 +147,13 @@ function buildTeamFitLabel(verdict, pairReserveScore) {
 }
 
 export function calculateCompatibility(firstProfile, secondProfile) {
+  if (
+    !hasComparableProfileData(firstProfile) ||
+    !hasComparableProfileData(secondProfile)
+  ) {
+    throw new Error('invalid-profile-data');
+  }
+
   const weightedDistance = Math.sqrt(
     FACTOR_ORDER.reduce((sum, key) => {
       const difference =

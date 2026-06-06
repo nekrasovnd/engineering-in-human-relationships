@@ -1,6 +1,7 @@
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
+import { hasComparableProfileData } from '../utils/compatibility';
 
 export function useDiscoverProfiles(currentUserId, options = {}) {
   const { excludeCurrent = false, enabled = true } = options;
@@ -16,18 +17,25 @@ export function useDiscoverProfiles(currentUserId, options = {}) {
       return undefined;
     }
 
-    const unsubscribe = onSnapshot(
+    setLoading(true);
+    setError('');
+
+    const discoverQuery = query(
       collection(db, 'discoverProfiles'),
+      where('discoverVisible', '==', true),
+    );
+
+    const unsubscribe = onSnapshot(
+      discoverQuery,
       (snapshot) => {
         const nextProfiles = snapshot.docs
           .map((item) => item.data())
           .filter(Boolean)
           .filter(
             (item) =>
-              item.discoverVisible &&
               item.questionnaireCompleted &&
-              item.factorScores &&
-              item.egoState,
+              item.egoState &&
+              hasComparableProfileData(item),
           )
           .filter((item) => (excludeCurrent ? item.userId !== currentUserId : true))
           .sort((left, right) =>

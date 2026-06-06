@@ -143,6 +143,43 @@ service cloud.firestore {
         && invite.data.toUid == request.auth.uid;
     }
 
+    function validMatchActionBase(actionId) {
+      return request.resource.data.keys().hasOnly([
+          'id',
+          'fromUid',
+          'toUid',
+          'decision',
+          'compatibility',
+          'conflictRisk',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.id == actionId
+        && actionId == request.auth.uid + "_" + request.resource.data.toUid
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != request.auth.uid
+        && request.resource.data.decision in ['like', 'pass']
+        && (
+          request.resource.data.compatibility is int
+          || request.resource.data.compatibility is float
+        )
+        && request.resource.data.compatibility >= 0
+        && request.resource.data.compatibility <= 100
+        && request.resource.data.conflictRisk is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
+    }
+
+    function validMatchActionCreate(actionId) {
+      return validMatchActionBase(actionId);
+    }
+
+    function validMatchActionUpdate(actionId) {
+      return validMatchActionBase(actionId)
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
     match /profiles/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
@@ -253,8 +290,10 @@ service cloud.firestore {
         && (resource == null
           || resource.data.fromUid == request.auth.uid
           || resource.data.toUid == request.auth.uid);
-      allow create, update: if isSignedIn()
-        && request.resource.data.fromUid == request.auth.uid;
+      allow create: if isSignedIn()
+        && validMatchActionCreate(actionId);
+      allow update: if isSignedIn()
+        && validMatchActionUpdate(actionId);
       allow delete: if isSignedIn() && resource.data.fromUid == request.auth.uid;
     }
   }

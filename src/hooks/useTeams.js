@@ -11,8 +11,12 @@ export function useTeams(userId) {
     if (!userId) {
       setTeams([]);
       setLoading(false);
+      setError('');
       return undefined;
     }
+
+    setLoading(true);
+    setError('');
 
     const teamsQuery = query(
       collection(db, 'teams'),
@@ -24,10 +28,13 @@ export function useTeams(userId) {
       (snapshot) => {
         const nextTeams = snapshot.docs
           .map((item) => ({ id: item.id, ...item.data() }))
-          .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+          .sort((left, right) =>
+            (right.createdAt || '').localeCompare(left.createdAt || ''),
+          );
 
         setTeams(nextTeams);
         setLoading(false);
+        setError('');
       },
       (snapshotError) => {
         setError(snapshotError.message);
