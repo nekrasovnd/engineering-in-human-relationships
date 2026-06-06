@@ -1,306 +1,48 @@
-import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useMutualMatches } from '../hooks/useMutualMatches';
-import { useTeamInvites } from '../hooks/useTeamInvites';
-import { useTeams } from '../hooks/useTeams';
-import {
-  acceptTeamInvite,
-  createTeamWithInvites,
-  declineTeamInvite,
-  ensureTeamJoinCode,
-  requestTeamInviteByCode,
-} from '../services/firestore';
+import { GOAL_OPTIONS, useTeamsWorkspace } from '../hooks/useTeamsWorkspace';
 import { formatEgoStateLabel } from '../utils/egoState';
 import SectionCard from '../components/SectionCard';
 import TeamCard from '../components/TeamCard';
 
-const GOAL_OPTIONS = ['Работа', 'Семья', 'Личные отношения'];
-
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fall back for embedded browser contexts.
-    }
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  textarea.style.pointerEvents = 'none';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-
-  let copied = false;
-
-  try {
-    copied = document.execCommand('copy');
-  } finally {
-    document.body.removeChild(textarea);
-  }
-
-  return copied;
-}
-
 export default function TeamsPage() {
   const location = useLocation();
   const { profile } = useAuth();
-  const { mutualMatches, loading: matchesLoading } = useMutualMatches(
-    profile.userId,
-    {
-      enabled: profile.discoverVisible,
-    },
-  );
-  const { invites, loading: invitesLoading } = useTeamInvites(profile.userId);
-  const { teams, loading: teamsLoading } = useTeams(profile.userId);
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    goal: GOAL_OPTIONS[0],
-    inviteeIds: [],
-  });
-  const [saving, setSaving] = useState(false);
-  const [respondingInviteId, setRespondingInviteId] = useState('');
-  const [codeInviteValue, setCodeInviteValue] = useState('');
-  const [codeInviteLoading, setCodeInviteLoading] = useState(false);
-  const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
-  const [copiedCodeForTeamId, setCopiedCodeForTeamId] = useState('');
-  const [copyFailedForTeamId, setCopyFailedForTeamId] = useState('');
-  const [codeInviteError, setCodeInviteError] = useState('');
-  const [codeInviteSuccess, setCodeInviteSuccess] = useState('');
-  const [inviteActionError, setInviteActionError] = useState({
-    inviteId: '',
-    message: '',
-  });
-  const [codeSuccess, setCodeSuccess] = useState('');
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const suggestedMemberIds = location.state?.suggestedMemberIds || [];
-    if (suggestedMemberIds.length === 0) {
-      return;
-    }
-
-    setForm((current) => ({
-      ...current,
-      inviteeIds: Array.from(
-        new Set([...current.inviteeIds, ...suggestedMemberIds]),
-      ),
-    }));
-  }, [location.state]);
-
-  useEffect(() => {
-    if (!copiedCodeForTeamId) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCopiedCodeForTeamId('');
-    }, 2200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [copiedCodeForTeamId]);
-
-  useEffect(() => {
-    if (!copyFailedForTeamId) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCopyFailedForTeamId('');
-    }, 2600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [copyFailedForTeamId]);
-
-  const pendingInvites = useMemo(
-    () => invites.filter((item) => item.status === 'pending'),
-    [invites],
-  );
-  const createdTeams = useMemo(
-    () => teams.filter((team) => team.createdBy === profile.userId),
-    [profile.userId, teams],
-  );
-  const joinedTeams = useMemo(
-    () => teams.filter((team) => team.createdBy !== profile.userId),
-    [profile.userId, teams],
-  );
-
-  const handleToggleInvitee = (userId) => {
-    setForm((current) => {
-      const exists = current.inviteeIds.includes(userId);
-      return {
-        ...current,
-        inviteeIds: exists
-          ? current.inviteeIds.filter((item) => item !== userId)
-          : [...current.inviteeIds, userId],
-      };
-    });
-  };
+  const {
+    mutualMatches,
+    matchesLoading,
+    invitesLoading,
+    teamsLoading,
+    form,
+    saving,
+    respondingInviteId,
+    codeInviteValue,
+    codeInviteLoading,
+    generatingCodeForTeamId,
+    copiedCodeForTeamId,
+    copyFailedForTeamId,
+    codeInviteError,
+    codeInviteSuccess,
+    inviteActionError,
+    codeSuccess,
+    error,
+    pendingInvites,
+    createdTeams,
+    joinedTeams,
+    updateFormField,
+    toggleInvitee,
+    updateCodeInviteValue,
+    createTeam,
+    acceptInvite,
+    declineInvite,
+    requestInviteByCode,
+    generateCode,
+    copyCode,
+  } = useTeamsWorkspace(profile, location.state);
 
   const handleCreateTeam = async (event) => {
     event.preventDefault();
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-
-    if (!form.name.trim() || !form.description.trim()) {
-      setError('Укажите название и описание команды.');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const invitedProfiles = mutualMatches.filter((item) =>
-        form.inviteeIds.includes(item.userId),
-      );
-
-      await createTeamWithInvites({
-        name: form.name.trim(),
-        description: form.description.trim(),
-        goal: form.goal,
-        creatorProfile: profile,
-        invitedProfiles,
-      });
-
-      setForm({
-        name: '',
-        description: '',
-        goal: GOAL_OPTIONS[0],
-        inviteeIds: [],
-      });
-    } catch {
-      setError('Не удалось создать команду или отправить приглашения.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAcceptInvite = async (inviteId) => {
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-
-    try {
-      setRespondingInviteId(inviteId);
-      await acceptTeamInvite(inviteId, profile);
-    } catch {
-      setInviteActionError({
-        inviteId,
-        message: 'Не удалось принять приглашение.',
-      });
-    } finally {
-      setRespondingInviteId('');
-    }
-  };
-
-  const handleDeclineInvite = async (inviteId) => {
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-
-    try {
-      setRespondingInviteId(inviteId);
-      await declineTeamInvite(inviteId);
-    } catch {
-      setInviteActionError({
-        inviteId,
-        message: 'Не удалось отклонить приглашение.',
-      });
-    } finally {
-      setRespondingInviteId('');
-    }
-  };
-
-  const handleRequestByCode = async () => {
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-
-    if (!codeInviteValue.trim()) {
-      setCodeInviteError('Введите код приглашения.');
-      return;
-    }
-
-    try {
-      setCodeInviteLoading(true);
-      const result = await requestTeamInviteByCode(codeInviteValue, profile);
-      setCodeInviteValue('');
-      setCodeInviteSuccess(
-        `Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`,
-      );
-    } catch (requestError) {
-      if (requestError.message === 'code-not-found') {
-        setCodeInviteError('Такой код не найден или уже выключен.');
-      } else if (requestError.message === 'invalid-code') {
-        setCodeInviteError('Код выглядит слишком коротким или неполным.');
-      } else if (requestError.message === 'invite-already-pending') {
-        setCodeInviteError('По этому коду у вас уже есть ожидающее приглашение.');
-      } else if (requestError.message === 'already-joined') {
-        setCodeInviteError('Вы уже состоите в этой команде.');
-      } else if (requestError.message === 'own-team') {
-        setCodeInviteError('Это код вашей собственной команды.');
-      } else {
-        setCodeInviteError('Не удалось использовать код приглашения.');
-      }
-    } finally {
-      setCodeInviteLoading(false);
-    }
-  };
-
-  const handleGenerateCode = async (team) => {
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-
-    try {
-      setGeneratingCodeForTeamId(team.id);
-      const code = await ensureTeamJoinCode(team, profile);
-      setCodeSuccess(`Код приглашения для команды «${team.name}»: ${code}`);
-    } catch {
-      setError('Не удалось создать код приглашения для команды.');
-    } finally {
-      setGeneratingCodeForTeamId('');
-    }
-  };
-
-  const handleCopyCode = async (teamId, code) => {
-    setError('');
-    setCodeSuccess('');
-    setCodeInviteError('');
-    setCodeInviteSuccess('');
-    setInviteActionError({ inviteId: '', message: '' });
-    setCopiedCodeForTeamId('');
-    setCopyFailedForTeamId('');
-
-    try {
-      const copied = await copyTextToClipboard(code);
-
-      if (!copied) {
-        throw new Error('copy-failed');
-      }
-
-      setCopiedCodeForTeamId(teamId);
-    } catch {
-      setCopyFailedForTeamId(teamId);
-    }
+    await createTeam();
   };
 
   return (
@@ -318,18 +60,13 @@ export default function TeamsPage() {
               <span className="mb-2 block text-sm text-slate-300">
                 Название команды
               </span>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
-                placeholder="Например, Экипаж проектного старта"
-              />
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(event) => updateFormField('name', event.target.value)}
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
+                  placeholder="Например, Экипаж проектного старта"
+                />
             </label>
 
             <label className="block">
@@ -337,10 +74,7 @@ export default function TeamsPage() {
               <textarea
                 value={form.description}
                 onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    description: event.target.value,
-                  }))
+                  updateFormField('description', event.target.value)
                 }
                 rows="4"
                 className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
@@ -352,12 +86,7 @@ export default function TeamsPage() {
               <span className="mb-2 block text-sm text-slate-300">Цель команды</span>
               <select
                 value={form.goal}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    goal: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateFormField('goal', event.target.value)}
                 className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
               >
                 {GOAL_OPTIONS.map((option) => (
@@ -425,7 +154,7 @@ export default function TeamsPage() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => handleToggleInvitee(candidate.userId)}
+                        onChange={() => toggleInvitee(candidate.userId)}
                         className="sr-only"
                       />
                       <div className="flex items-center justify-between gap-3">
@@ -457,21 +186,11 @@ export default function TeamsPage() {
                 <input
                   type="text"
                   value={codeInviteValue}
-                  onChange={(event) => {
-                    setCodeInviteValue(event.target.value.toUpperCase());
-
-                    if (codeInviteError) {
-                      setCodeInviteError('');
-                    }
-
-                    if (codeInviteSuccess) {
-                      setCodeInviteSuccess('');
-                    }
-                  }}
+                  onChange={(event) => updateCodeInviteValue(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       event.preventDefault();
-                      handleRequestByCode();
+                      requestInviteByCode();
                     }
                   }}
                   className="w-full rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-white outline-none focus:border-blue-400"
@@ -480,7 +199,7 @@ export default function TeamsPage() {
                 />
                 <button
                   type="button"
-                  onClick={handleRequestByCode}
+                  onClick={requestInviteByCode}
                   disabled={codeInviteLoading}
                   className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -539,7 +258,7 @@ export default function TeamsPage() {
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => handleAcceptInvite(invite.id)}
+                    onClick={() => acceptInvite(invite.id)}
                     disabled={respondingInviteId === invite.id}
                     className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -549,7 +268,7 @@ export default function TeamsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeclineInvite(invite.id)}
+                    onClick={() => declineInvite(invite.id)}
                     disabled={respondingInviteId === invite.id}
                     className="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -598,7 +317,7 @@ export default function TeamsPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleCopyCode(team.id, team.joinCode)}
+                        onClick={() => copyCode(team.id, team.joinCode)}
                         className={`rounded-2xl border px-4 py-3 text-sm transition ${
                           copiedCodeForTeamId === team.id
                             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
@@ -621,7 +340,7 @@ export default function TeamsPage() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => handleGenerateCode(team)}
+                        onClick={() => generateCode(team)}
                         disabled={generatingCodeForTeamId === team.id}
                         className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
