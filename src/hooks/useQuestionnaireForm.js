@@ -193,17 +193,17 @@ export function useQuestionnaireForm(user, profile) {
     const age = Number(baseForm.age);
 
     if (!baseForm.name.trim() || !baseForm.age) {
-      setError('РЈРєР°Р¶РёС‚Рµ РёРјСЏ Рё РІРѕР·СЂР°СЃС‚.');
+      setError('Укажите имя и возраст.');
       return;
     }
 
     if (!Number.isInteger(age) || age < 16 || age > 90) {
-      setError('Р’РѕР·СЂР°СЃС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚ 16 РґРѕ 90 Р»РµС‚.');
+      setError('Возраст должен быть от 16 до 90 лет.');
       return;
     }
 
     if (answeredCount !== TOTAL_QUESTIONS) {
-      setError(`РќСѓР¶РЅРѕ РѕС‚РІРµС‚РёС‚СЊ РЅР° РІСЃРµ ${TOTAL_QUESTIONS} РІРѕРїСЂРѕСЃРѕРІ.`);
+      setError(`Нужно ответить на все ${TOTAL_QUESTIONS} вопросов.`);
       return;
     }
 
@@ -238,9 +238,7 @@ export function useQuestionnaireForm(user, profile) {
       setDraftState('saved');
       navigate('/profile');
     } catch {
-      setError(
-        'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РїСЂРѕС„РёР»СЊ. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰С‘ СЂР°Р·.',
-      );
+      setError('Не удалось сохранить профиль. Попробуйте ещё раз.');
     } finally {
       setSaving(false);
     }
@@ -250,21 +248,21 @@ export function useQuestionnaireForm(user, profile) {
     if (draftState === 'saving') {
       return {
         tone: 'text-amber-200',
-        text: 'Р§РµСЂРЅРѕРІРёРє Р°РЅРєРµС‚С‹ СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ...',
+        text: 'Черновик анкеты сохраняется...',
       };
     }
 
     if (draftState === 'saved' && hasPendingChanges) {
       return {
         tone: 'text-cyan-200',
-        text: 'Р§РµСЂРЅРѕРІРёРє СЃРѕС…СЂР°РЅС‘РЅ. Р”Р»СЏ РїРµСЂРµСЃС‡С‘С‚Р° РёС‚РѕРіРѕРІРѕРіРѕ РїСЂРѕС„РёР»СЏ РЅР°Р¶РјРёС‚Рµ В«РЎРѕС…СЂР°РЅРёС‚СЊ РїСЂРѕС„РёР»СЊВ».',
+        text: 'Черновик сохранён. Для пересчёта итогового профиля нажмите «Сохранить профиль».',
       };
     }
 
     if (draftState === 'error') {
       return {
         tone: 'text-rose-200',
-        text: 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ С‡РµСЂРЅРѕРІРёРє. РР·РјРµРЅРµРЅРёСЏ РѕСЃС‚Р°РЅСѓС‚СЃСЏ С‚РѕР»СЊРєРѕ РІ С‚РµРєСѓС‰РµР№ РІРєР»Р°РґРєРµ.',
+        text: 'Не удалось сохранить черновик. Изменения останутся только в текущей вкладке.',
       };
     }
 

@@ -11,11 +11,7 @@ import {
 } from '../services/firestore';
 import { canUseDiscover } from '../utils/profileState';
 
-export const GOAL_OPTIONS = [
-  'Р Р°Р±РѕС‚Р°',
-  'РЎРµРјСЊСЏ',
-  'Р›РёС‡РЅС‹Рµ РѕС‚РЅРѕС€РµРЅРёСЏ',
-];
+export const GOAL_OPTIONS = ['Работа', 'Семья', 'Личные отношения'];
 
 function buildInitialTeamForm() {
   return {
@@ -60,26 +56,26 @@ async function copyTextToClipboard(text) {
 
 function getCodeInviteErrorMessage(requestError) {
   if (requestError.message === 'code-not-found') {
-    return 'РўР°РєРѕР№ РєРѕРґ РЅРµ РЅР°Р№РґРµРЅ РёР»Рё СѓР¶Рµ РІС‹РєР»СЋС‡РµРЅ.';
+    return 'Такой код не найден или уже выключен.';
   }
 
   if (requestError.message === 'invalid-code') {
-    return 'РљРѕРґ РІС‹РіР»СЏРґРёС‚ СЃР»РёС€РєРѕРј РєРѕСЂРѕС‚РєРёРј РёР»Рё РЅРµРїРѕР»РЅС‹Рј.';
+    return 'Код выглядит слишком коротким или неполным.';
   }
 
   if (requestError.message === 'invite-already-pending') {
-    return 'РџРѕ СЌС‚РѕРјСѓ РєРѕРґСѓ Сѓ РІР°СЃ СѓР¶Рµ РµСЃС‚СЊ РѕР¶РёРґР°СЋС‰РµРµ РїСЂРёРіР»Р°С€РµРЅРёРµ.';
+    return 'По этому коду у вас уже есть ожидающее приглашение.';
   }
 
   if (requestError.message === 'already-joined') {
-    return 'Р’С‹ СѓР¶Рµ СЃРѕСЃС‚РѕРёС‚Рµ РІ СЌС‚РѕР№ РєРѕРјР°РЅРґРµ.';
+    return 'Вы уже состоите в этой команде.';
   }
 
   if (requestError.message === 'own-team') {
-    return 'Р­С‚Рѕ РєРѕРґ РІР°С€РµР№ СЃРѕР±СЃС‚РІРµРЅРЅРѕР№ РєРѕРјР°РЅРґС‹.';
+    return 'Это код вашей собственной команды.';
   }
 
-  return 'РќРµ СѓРґР°Р»РѕСЃСЊ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РєРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ.';
+  return 'Не удалось использовать код приглашения.';
 }
 
 export function useTeamsWorkspace(profile, locationState) {
@@ -202,7 +198,7 @@ export function useTeamsWorkspace(profile, locationState) {
     resetFeedback();
 
     if (!form.name.trim() || !form.description.trim()) {
-      setError('РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ Рё РѕРїРёСЃР°РЅРёРµ РєРѕРјР°РЅРґС‹.');
+      setError('Укажите название и описание команды.');
       return false;
     }
 
@@ -223,9 +219,7 @@ export function useTeamsWorkspace(profile, locationState) {
       setForm(buildInitialTeamForm());
       return true;
     } catch {
-      setError(
-        'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РєРѕРјР°РЅРґСѓ РёР»Рё РѕС‚РїСЂР°РІРёС‚СЊ РїСЂРёРіР»Р°С€РµРЅРёСЏ.',
-      );
+      setError('Не удалось создать команду или отправить приглашения.');
       return false;
     } finally {
       setSaving(false);
@@ -241,7 +235,7 @@ export function useTeamsWorkspace(profile, locationState) {
     } catch {
       setInviteActionError({
         inviteId,
-        message: 'РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРёРЅСЏС‚СЊ РїСЂРёРіР»Р°С€РµРЅРёРµ.',
+        message: 'Не удалось принять приглашение.',
       });
     } finally {
       setRespondingInviteId('');
@@ -257,7 +251,7 @@ export function useTeamsWorkspace(profile, locationState) {
     } catch {
       setInviteActionError({
         inviteId,
-        message: 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєР»РѕРЅРёС‚СЊ РїСЂРёРіР»Р°С€РµРЅРёРµ.',
+        message: 'Не удалось отклонить приглашение.',
       });
     } finally {
       setRespondingInviteId('');
@@ -268,7 +262,7 @@ export function useTeamsWorkspace(profile, locationState) {
     resetFeedback();
 
     if (!codeInviteValue.trim()) {
-      setCodeInviteError('Р’РІРµРґРёС‚Рµ РєРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ.');
+      setCodeInviteError('Введите код приглашения.');
       return;
     }
 
@@ -277,7 +271,7 @@ export function useTeamsWorkspace(profile, locationState) {
       const result = await requestTeamInviteByCode(codeInviteValue, profile);
       setCodeInviteValue('');
       setCodeInviteSuccess(
-        `РџСЂРёРіР»Р°С€РµРЅРёРµ РІ РєРѕРјР°РЅРґСѓ В«${result.teamName}В» РїРѕСЏРІРёР»РѕСЃСЊ РЅРёР¶Рµ РІ СЂР°Р·РґРµР»Рµ В«РџСЂРёРіР»Р°С€РµРЅРёСЏВ».`,
+        `Приглашение в команду «${result.teamName}» появилось ниже в разделе «Приглашения».`,
       );
     } catch (requestError) {
       setCodeInviteError(getCodeInviteErrorMessage(requestError));
@@ -292,13 +286,9 @@ export function useTeamsWorkspace(profile, locationState) {
     try {
       setGeneratingCodeForTeamId(team.id);
       const code = await ensureTeamJoinCode(team, profile);
-      setCodeSuccess(
-        `РљРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ РґР»СЏ РєРѕРјР°РЅРґС‹ В«${team.name}В»: ${code}`,
-      );
+      setCodeSuccess(`Код приглашения для команды «${team.name}»: ${code}`);
     } catch {
-      setError(
-        'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РєРѕРґ РїСЂРёРіР»Р°С€РµРЅРёСЏ РґР»СЏ РєРѕРјР°РЅРґС‹.',
-      );
+      setError('Не удалось создать код приглашения для команды.');
     } finally {
       setGeneratingCodeForTeamId('');
     }
