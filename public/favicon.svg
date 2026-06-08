@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="ehr-favicon-ring" x1="14" y1="12" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DD3FC" />
+      <stop offset="1" stop-color="#60A5FA" />
+    </linearGradient>
+    <linearGradient id="ehr-favicon-link" x1="20" y1="18" x2="44" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0F2FE" />
+      <stop offset="1" stop-color="#93C5FD" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="#0F172A" />
+  <circle cx="32" cy="32" r="27" stroke="url(#ehr-favicon-ring)" stroke-opacity="0.28" stroke-width="2" />
+
+  <path
+    d="M22 22L32 32L42 22M22 42L32 32L42 42"
+    stroke="url(#ehr-favicon-link)"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="4"
+  />
+
+  <circle cx="22" cy="22" r="4.5" fill="#7DD3FC" />
+  <circle cx="42" cy="22" r="4.5" fill="#60A5FA" />
+  <circle cx="22" cy="42" r="4.5" fill="#38BDF8" />
+  <circle cx="42" cy="42" r="4.5" fill="#3B82F6" />
+  <circle cx="32" cy="32" r="5.5" fill="#E0F2FE" />
+</svg>
