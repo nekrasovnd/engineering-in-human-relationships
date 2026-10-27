@@ -6,7 +6,6 @@ import {
   acceptTeamInvite,
   createTeamWithInvites,
   declineTeamInvite,
-  ensureTeamJoinCode,
   requestTeamInviteByCode,
 } from '../services/firestore';
 import { canUseDiscover } from '../utils/profileState';
@@ -20,38 +19,6 @@ function buildInitialTeamForm() {
     goal: GOAL_OPTIONS[0],
     inviteeIds: [],
   };
-}
-
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fall back for embedded browser contexts.
-    }
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  textarea.style.pointerEvents = 'none';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-
-  let copied = false;
-
-  try {
-    copied = document.execCommand('copy');
-  } finally {
-    document.body.removeChild(textarea);
-  }
-
-  return copied;
 }
 
 function getCodeInviteErrorMessage(requestError) {
@@ -92,16 +59,12 @@ export function useTeamsWorkspace(profile, locationState) {
   const [respondingInviteId, setRespondingInviteId] = useState('');
   const [codeInviteValue, setCodeInviteValue] = useState('');
   const [codeInviteLoading, setCodeInviteLoading] = useState(false);
-  const [generatingCodeForTeamId, setGeneratingCodeForTeamId] = useState('');
-  const [copiedCodeForTeamId, setCopiedCodeForTeamId] = useState('');
-  const [copyFailedForTeamId, setCopyFailedForTeamId] = useState('');
   const [codeInviteError, setCodeInviteError] = useState('');
   const [codeInviteSuccess, setCodeInviteSuccess] = useState('');
   const [inviteActionError, setInviteActionError] = useState({
     inviteId: '',
     message: '',
   });
-  const [codeSuccess, setCodeSuccess] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -118,46 +81,13 @@ export function useTeamsWorkspace(profile, locationState) {
     }));
   }, [locationState]);
 
-  useEffect(() => {
-    if (!copiedCodeForTeamId) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCopiedCodeForTeamId('');
-    }, 2200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [copiedCodeForTeamId]);
-
-  useEffect(() => {
-    if (!copyFailedForTeamId) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setCopyFailedForTeamId('');
-    }, 2600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [copyFailedForTeamId]);
-
   const pendingInvites = useMemo(
     () => invites.filter((item) => item.status === 'pending'),
     [invites],
   );
-  const createdTeams = useMemo(
-    () => teams.filter((team) => team.createdBy === profile.userId),
-    [profile.userId, teams],
-  );
-  const joinedTeams = useMemo(
-    () => teams.filter((team) => team.createdBy !== profile.userId),
-    [profile.userId, teams],
-  );
 
   const resetFeedback = () => {
     setError('');
-    setCodeSuccess('');
     setCodeInviteError('');
     setCodeInviteSuccess('');
     setInviteActionError({ inviteId: '', message: '' });
@@ -199,7 +129,7 @@ export function useTeamsWorkspace(profile, locationState) {
 
     if (!form.name.trim() || !form.description.trim()) {
       setError('Укажите название и описание команды.');
-      return false;
+      return null;
     }
 
     try {
@@ -208,19 +138,19 @@ export function useTeamsWorkspace(profile, locationState) {
         form.inviteeIds.includes(item.userId),
       );
 
-      await createTeamWithInvites({
+      return await createTeamWithInvites({
         name: form.name.trim(),
         description: form.description.trim(),
         goal: form.goal,
         creatorProfile: profile,
         invitedProfiles,
+      }).then((teamId) => {
+        setForm(buildInitialTeamForm());
+        return teamId;
       });
-
-      setForm(buildInitialTeamForm());
-      return true;
     } catch {
       setError('Не удалось создать команду или отправить приглашения.');
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
@@ -280,38 +210,6 @@ export function useTeamsWorkspace(profile, locationState) {
     }
   };
 
-  const generateCode = async (team) => {
-    resetFeedback();
-
-    try {
-      setGeneratingCodeForTeamId(team.id);
-      const code = await ensureTeamJoinCode(team, profile);
-      setCodeSuccess(`Код приглашения для команды «${team.name}»: ${code}`);
-    } catch {
-      setError('Не удалось создать код приглашения для команды.');
-    } finally {
-      setGeneratingCodeForTeamId('');
-    }
-  };
-
-  const copyCode = async (teamId, code) => {
-    resetFeedback();
-    setCopiedCodeForTeamId('');
-    setCopyFailedForTeamId('');
-
-    try {
-      const copied = await copyTextToClipboard(code);
-
-      if (!copied) {
-        throw new Error('copy-failed');
-      }
-
-      setCopiedCodeForTeamId(teamId);
-    } catch {
-      setCopyFailedForTeamId(teamId);
-    }
-  };
-
   return {
     mutualMatches,
     matchesLoading,
@@ -322,17 +220,12 @@ export function useTeamsWorkspace(profile, locationState) {
     respondingInviteId,
     codeInviteValue,
     codeInviteLoading,
-    generatingCodeForTeamId,
-    copiedCodeForTeamId,
-    copyFailedForTeamId,
     codeInviteError,
     codeInviteSuccess,
     inviteActionError,
-    codeSuccess,
     error,
     pendingInvites,
-    createdTeams,
-    joinedTeams,
+    teams,
     updateFormField,
     toggleInvitee,
     updateCodeInviteValue,
@@ -340,7 +233,5 @@ export function useTeamsWorkspace(profile, locationState) {
     acceptInvite,
     declineInvite,
     requestInviteByCode,
-    generateCode,
-    copyCode,
   };
 }

@@ -41,7 +41,8 @@ src/
 │   ├── useTeamInvites.js     # Приглашения в команды для пользователя
 │   ├── useTeams.js           # Команды пользователя (creator + member)
 │   ├── useDiscoverWorkspace.js  # Всё состояние страницы знакомств
-│   ├── useTeamsWorkspace.js     # Всё состояние страницы команд
+│   ├── useTeamsWorkspace.js     # Список команд, создание, входящие приглашения
+│   ├── useTeamWorkspace.js      # Страница одной команды: участники, роли, настройки
 │   └── useQuestionnaireForm.js  # Состояние опросника (автосохранение черновика, валидация)
 │
 ├── pages/                    # Страницы приложения (по одной на маршрут)
@@ -50,7 +51,8 @@ src/
 │   ├── ProfilePage.jsx       # /profile — просмотр профиля, редактирование базовых данных
 │   ├── DiscoverPage.jsx      # /discover — лента знакомств, взаимные совпадения
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
-│   ├── TeamsPage.jsx         # /teams — создание команд, приглашения, просмотр
+│   ├── TeamsPage.jsx         # /teams — создание команд, приглашения, список команд
+│   ├── TeamPage.jsx          # /teams/:teamId — обзор, участники и роли, настройки
 │   └── KnowledgeBasePage.jsx # /knowledge — база знаний ТРИЗ с поиском
 │
 ├── components/               # Переиспользуемые UI-компоненты
@@ -63,6 +65,10 @@ src/
 │   ├── RadarProfileChart.jsx # Радар-диаграмма 8 факторов (chart.js)
 │   ├── SwipeDeck.jsx         # Карточка кандидата в знакомствах (свайп + кнопки)
 │   ├── TeamCard.jsx          # Карточка команды с анализом ролей и конфликтов
+│   ├── TeamListItem.jsx      # Строка команды в списке (ссылка + роль)
+│   ├── TeamRoleBadge.jsx     # Бейдж роли участника
+│   ├── TeamMembersPanel.jsx  # Участники: роли, исключение, передача владения, приглашения
+│   ├── TeamSettingsPanel.jsx # Данные команды, матрица прав, выход/удаление
 │   ├── ComparisonResultCard.jsx # Результат сравнения двух профилей
 │   ├── ProfileInsightCard.jsx   # Психологический разбор профиля (нарратив)
 │   └── InstructionCard.jsx      # Памятка «Быстро и по делу»
@@ -74,6 +80,8 @@ src/
 └── utils/                    # Чистые вспомогательные функции
     ├── compatibility.js      # calculateCompatibility() — алгоритм совместимости двух профилей
     ├── teamAnalysis.js       # buildTeamSummary(), findMostConflictPair(), getRecommendedRoles()
+    ├── teamRoles.js          # Роли в команде (owner/admin/lead/member) и матрица прав
+    ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля
     ├── profilePresentation.js # buildAvatarInitials(), getFactorProfileExplanation() — отображение
@@ -146,4 +154,4 @@ useDiscoverWorkspace → объединяет оба хука + управляе
 |---|---|---|
 | Один JS-бандл ~929 KB — нет code splitting | vite.config.js | Низкий |
 | `useFirestoreList.js` uses spreading in deps array | useFirestoreList.js | Низкий |
-| Нет автоматических тестов | — | Средний |
+| Тесты есть только для правил Firestore (`npm run test:rules`) | tests/ | Средний |

@@ -170,6 +170,22 @@ input[type='range'] {
   color: #0f766e;
 }
 
+:root[data-theme='light'] .bg-emerald-950\/90 {
+  background-color: rgba(236, 253, 245, 0.96);
+}
+
+:root[data-theme='light'] .bg-rose-950\/90 {
+  background-color: rgba(255, 241, 242, 0.96);
+}
+
+:root[data-theme='light'] .text-violet-200 {
+  color: #6d28d9;
+}
+
+:root[data-theme='light'] .text-sky-200 {
+  color: #0369a1;
+}
+
 :root[data-theme='light'] .text-emerald-200,
 :root[data-theme='light'] .text-emerald-300 {
   color: #047857;

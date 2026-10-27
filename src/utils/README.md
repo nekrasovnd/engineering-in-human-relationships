@@ -28,6 +28,22 @@
 
 ---
 
+### `teamRoles.js`
+Роли участников команды и матрица прав (зеркало хелперов в `firestore.rules`).
+
+**Экспорты:**
+- `TEAM_ROLES`, `TEAM_ROLE_KEYS`, `ASSIGNABLE_TEAM_ROLES`, `TEAM_PERMISSIONS`
+- `getTeamRole(team, uid)` → `'owner' | 'admin' | 'lead' | 'member' | null`
+- `canTeamMember(team, uid, action)`, `canManageMember(team, actorId, targetId)`
+- `compareMembersByRole(team)` — компаратор для сортировки участников
+
+---
+
+### `clipboard.js`
+`copyTextToClipboard(text)` → `Promise<boolean>` — копирование с фолбэком.
+
+---
+
 ### `egoState.js`
 Форматирование эго-состояния профиля в читаемый label.
 

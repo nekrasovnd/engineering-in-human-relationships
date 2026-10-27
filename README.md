@@ -26,6 +26,20 @@ npm run dev
 npm run build
 ```
 
+## Локальная разработка на эмуляторах
+
+Без доступа к боевой базе (нужна Java 11+):
+
+```bash
+npm run emulators        # Auth + Firestore на 127.0.0.1
+npm run seed:emulators   # тестовые пользователи и демо-команда (логины в scripts/seed-emulators.cjs)
+npm run dev:emulators    # сайт, подключённый к эмуляторам
+npm run test:rules       # тесты правил Firestore
+```
+
+После изменения `firebase/firestore.rules` правила нужно задеплоить:
+`npx firebase deploy --only firestore:rules`.
+
 ## Переменные окружения
 
 Создайте файл `.env` в корне проекта:

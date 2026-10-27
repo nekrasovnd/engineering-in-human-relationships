@@ -92,9 +92,9 @@ useDiscoverWorkspace(profile)
 Всё состояние страницы `/teams`:
 - Список взаимных совпадений для приглашения
 - Список входящих приглашений (`pendingInvites`)
-- Список команд (`createdTeams`, `joinedTeams`)
+- Список команд пользователя (`teams`)
 - Форма создания команды
-- Операции: `createTeam`, `acceptInvite`, `declineInvite`, `requestInviteByCode`, `generateCode`, `copyCode`
+- Операции: `createTeam` (→ id новой команды), `acceptInvite`, `declineInvite`, `requestInviteByCode`
 
 ```js
 useTeamsWorkspace(profile, locationState)
@@ -102,6 +102,17 @@ useTeamsWorkspace(profile, locationState)
 ```
 
 **Константы:** `GOAL_OPTIONS` — массив опций цели команды.
+
+### `useTeamWorkspace.js`
+Состояние страницы одной команды `/teams/:teamId`:
+- `team`, `myRole`, `can` (права текущего пользователя), `members` (по убыванию роли)
+- Форма данных команды, приглашения из взаимных совпадений, код команды
+- Операции: `saveInfo`, `changeMemberRole`, `removeMember`, `transferOwnership`,
+  `leave`, `removeTeam`, `generateCode`, `copyCode`, `sendInvites`
+
+```js
+useTeamWorkspace(teamId, profile)
+```
 
 ### `useQuestionnaireForm.js`
 Состояние страницы `/questionnaire`:

@@ -223,6 +223,21 @@ export function sanitizeTeam(team, teamId = '') {
         .map((item) => sanitizeComparableProfile(item))
         .filter(Boolean)
     : [];
+  const createdBy = sanitizeRequiredText(team?.createdBy);
+  // Старые команды без ownerId: владельцем считается создатель.
+  const ownerId = sanitizeRequiredText(team?.ownerId) || createdBy;
+  const storedRoles =
+    team?.roles && typeof team.roles === 'object' ? team.roles : {};
+  const roles = Object.fromEntries(
+    memberIds.map((userId) => [
+      userId,
+      userId === ownerId
+        ? 'owner'
+        : ['admin', 'lead'].includes(storedRoles[userId])
+          ? storedRoles[userId]
+          : 'member',
+    ]),
+  );
 
   return {
     id: sanitizeRequiredText(teamId),
@@ -230,7 +245,9 @@ export function sanitizeTeam(team, teamId = '') {
     description: sanitizeOptionalText(team?.description),
     goal: sanitizeOptionalText(team?.goal),
     joinCode: sanitizeOptionalText(team?.joinCode),
-    createdBy: sanitizeRequiredText(team?.createdBy),
+    createdBy,
+    ownerId,
+    roles,
     memberIds,
     memberSnapshots,
     analysis:

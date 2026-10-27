@@ -63,9 +63,32 @@
 - `already-joined` — пользователь уже в команде
 - `invite-already-pending` — уже есть ожидающее приглашение
 
-#### `ensureTeamJoinCode(team, creatorProfile)` → `string`
+#### `ensureTeamJoinCode(team, actorProfile)` → `string`
 Генерирует или возвращает существующий `joinCode` для команды.
-Только создатель команды может генерировать код.
+Код могут создавать владелец и администраторы.
+
+### Управление командой (роли и права — `utils/teamRoles.js`)
+
+Права проверяются дважды: в сервисе (понятная ошибка `team-permission-denied`)
+и в `firebase/firestore.rules` (настоящая защита).
+
+#### `updateTeamInfo(team, actorId, { name, description, goal })`
+Владелец/админ. Синхронно обновляет карточку `teamJoinCodes/{code}`.
+
+#### `inviteMembersToTeam(team, actorProfile, profiles)` → `number`
+Владелец/админ. Прямые приглашения в существующую команду (перезаписывает старые).
+
+#### `setTeamMemberRole(teamId, actorId, targetId, role)`
+Владелец/админ. `role` ∈ `admin | lead | member`. Нельзя менять себя и владельца.
+
+#### `removeTeamMember(teamId, actorId, targetId)` / `leaveTeam(teamId, userId)`
+Исключение (владелец/админ) или выход. Владелец выйти не может.
+
+#### `transferTeamOwnership(teamId, actorId, nextOwnerId)`
+Только владелец. Прежний владелец становится админом.
+
+#### `deleteTeam(team, actorId)`
+Только владелец. Удаляет команду и выключает её код.
 
 ---
 
@@ -97,6 +120,9 @@ discoverProfiles/{userId}   — публичный снапшот для лен�
 questionnaireDrafts/{userId} — черновик опросника
 matchDecisions/{autoId}     — решения (like/pass) между пользователями
 teams/{teamId}              — команда
-  memberSnapshots (subcollection или поле) — снапшоты профилей участников
+  ownerId                   — владелец (у старых команд нет → createdBy)
+  roles                     — { uid: 'owner' | 'admin' | 'lead' }, нет ключа → 'member'
+  memberIds, memberSnapshots — состав и снапшоты профилей участников
+teamJoinCodes/{code}        — код вступления в команду
 teamInvites/{inviteId}      — приглашение в команду
 ```

@@ -1,11 +1,13 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
   query,
+  runTransaction,
   setDoc,
   where,
   writeBatch,
@@ -26,6 +28,13 @@ import {
   sanitizeSystemIndices,
   sanitizeTeam,
 } from '../utils/firestoreDocuments';
+import {
+  ASSIGNABLE_TEAM_ROLES,
+  canManageMember,
+  canTeamMember,
+  getTeamOwnerId,
+  getTeamRole,
+} from '../utils/teamRoles';
 
 const nowIso = () => new Date().toISOString();
 const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -249,6 +258,17 @@ function buildTeamJoinCodeDoc({
   };
 }
 
+// Команду может прочитать только участник: если чтение запрещено,
+// значит пользователь уже вышел или был исключён и может вступить снова.
+async function isTeamMember(teamId) {
+  try {
+    const snapshot = await getDoc(doc(db, 'teams', teamId));
+    return snapshot.exists();
+  } catch {
+    return false;
+  }
+}
+
 function buildDiscoverProfile(profile, createdAt, updatedAt) {
   return {
     ...pickProfileFields(profile, DISCOVER_PROFILE_FIELDS),
@@ -456,6 +476,8 @@ export async function createTeamWithInvites({
     goal,
     joinCode,
     createdBy: creatorProfile.userId,
+    ownerId: creatorProfile.userId,
+    roles: { [creatorProfile.userId]: 'owner' },
     memberIds: [creatorProfile.userId],
     memberSnapshots: [creatorSnapshot],
     analysis: buildTeamAnalysis([creatorSnapshot]),
@@ -505,8 +527,8 @@ export async function createTeamWithInvites({
 export async function ensureTeamJoinCode(team, creatorProfile) {
   assertCurrentUser(creatorProfile.userId);
 
-  if (team.createdBy !== creatorProfile.userId) {
-    throw new Error('team-owner-mismatch');
+  if (!canTeamMember(team, creatorProfile.userId, 'invite')) {
+    throw new Error('team-permission-denied');
   }
 
   if (team.joinCode) {
@@ -586,7 +608,10 @@ export async function requestTeamInviteByCode(code, profile) {
     `${joinCodeData.teamId}_${profile.userId}`,
   );
 
-  if (currentInvite?.status === 'accepted') {
+  if (
+    currentInvite?.status === 'accepted' &&
+    (await isTeamMember(joinCodeData.teamId))
+  ) {
     throw new Error('already-joined');
   }
 
@@ -711,6 +736,229 @@ export async function declineTeamInvite(inviteId) {
     },
     { merge: true },
   );
+}
+
+function assertTeamPermission(team, userId, action) {
+  if (!canTeamMember(team, userId, action)) {
+    throw new Error('team-permission-denied');
+  }
+}
+
+async function readTeamInTransaction(transaction, teamId) {
+  const teamRef = doc(db, 'teams', teamId);
+  const snapshot = await transaction.get(teamRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('team-not-found');
+  }
+
+  return {
+    teamRef,
+    rawTeam: snapshot.data(),
+    team: sanitizeTeam(snapshot.data(), snapshot.id),
+  };
+}
+
+function normalizeTeamInfo({ name, description, goal }) {
+  const nextInfo = {
+    name: String(name || '').trim(),
+    description: String(description || '').trim(),
+    goal: String(goal || '').trim(),
+  };
+
+  if (!nextInfo.name || !nextInfo.description) {
+    throw new Error('invalid-team-info');
+  }
+
+  return nextInfo;
+}
+
+/**
+ * Меняет название, описание и цель команды (владелец и админы).
+ * Синхронно обновляет карточку кода приглашения, чтобы новые заявки по коду
+ * показывали актуальное название.
+ */
+export async function updateTeamInfo(team, actorId, info) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'editInfo');
+
+  const nextInfo = normalizeTeamInfo(info);
+  const updatedAt = nowIso();
+  const batch = writeBatch(db);
+
+  batch.update(doc(db, 'teams', team.id), { ...nextInfo, updatedAt });
+
+  if (team.joinCode) {
+    batch.update(doc(db, 'teamJoinCodes', team.joinCode), {
+      teamName: nextInfo.name,
+      teamDescription: nextInfo.description,
+      teamGoal: nextInfo.goal,
+      updatedAt,
+    });
+  }
+
+  await batch.commit();
+}
+
+/**
+ * Отправляет прямые приглашения в существующую команду (владелец и админы).
+ * Повторное приглашение перезаписывает старое отклонённое/закрытое.
+ */
+export async function inviteMembersToTeam(team, actorProfile, invitedProfiles = []) {
+  assertCurrentUser(actorProfile.userId);
+  assertTeamPermission(team, actorProfile.userId, 'invite');
+
+  const targets = invitedProfiles.filter(
+    (item, index, items) =>
+      item?.userId &&
+      !team.memberIds.includes(item.userId) &&
+      items.findIndex((candidate) => candidate.userId === item.userId) === index,
+  );
+
+  if (targets.length === 0) {
+    return 0;
+  }
+
+  const timestamp = nowIso();
+  const batch = writeBatch(db);
+
+  targets.forEach((profile) => {
+    batch.set(doc(db, 'teamInvites', `${team.id}_${profile.userId}`), {
+      teamId: team.id,
+      teamName: team.name,
+      teamDescription: team.description,
+      teamGoal: team.goal,
+      fromUid: actorProfile.userId,
+      fromName: actorProfile.name,
+      fromAvatarInitials: actorProfile.avatarInitials,
+      toUid: profile.userId,
+      toName: profile.name,
+      toAvatarInitials: profile.avatarInitials,
+      status: 'pending',
+      source: 'direct',
+      joinCode: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  });
+
+  await batch.commit();
+  return targets.length;
+}
+
+/**
+ * Назначает участнику роль admin / lead / member.
+ * Владельца менять нельзя (только передачей владения), себя — тоже.
+ * Роль 'member' хранится как отсутствие ключа в карте roles.
+ */
+export async function setTeamMemberRole(teamId, actorId, targetId, role) {
+  assertCurrentUser(actorId);
+
+  if (!ASSIGNABLE_TEAM_ROLES.includes(role)) {
+    throw new Error('invalid-team-role');
+  }
+
+  await runTransaction(db, async (transaction) => {
+    const { teamRef, team } = await readTeamInTransaction(transaction, teamId);
+
+    if (!canManageMember(team, actorId, targetId)) {
+      throw new Error('team-permission-denied');
+    }
+
+    if (getTeamRole(team, targetId) === role) {
+      return;
+    }
+
+    transaction.update(teamRef, {
+      [`roles.${targetId}`]: role === 'member' ? deleteField() : role,
+      updatedAt: nowIso(),
+    });
+  });
+}
+
+async function removeUserFromTeam(teamId, actorId, targetId) {
+  await runTransaction(db, async (transaction) => {
+    const { teamRef, rawTeam, team } = await readTeamInTransaction(
+      transaction,
+      teamId,
+    );
+    const isSelf = actorId === targetId;
+
+    if (isSelf ? !canTeamMember(team, actorId, 'leave') : !canManageMember(team, actorId, targetId)) {
+      throw new Error('team-permission-denied');
+    }
+
+    // Фильтруем сырые массивы: правила сверяют размеры со старым документом.
+    const nextMemberSnapshots = (rawTeam.memberSnapshots || []).filter(
+      (item) => item?.userId !== targetId,
+    );
+    const patch = {
+      memberIds: (rawTeam.memberIds || []).filter((item) => item !== targetId),
+      memberSnapshots: nextMemberSnapshots,
+      analysis: buildTeamAnalysis(nextMemberSnapshots),
+      updatedAt: nowIso(),
+    };
+
+    if (rawTeam.roles && Object.hasOwn(rawTeam.roles, targetId)) {
+      patch[`roles.${targetId}`] = deleteField();
+    }
+
+    transaction.update(teamRef, patch);
+  });
+}
+
+/** Исключает участника из команды (владелец и админы; владельца исключить нельзя). */
+export async function removeTeamMember(teamId, actorId, targetId) {
+  assertCurrentUser(actorId);
+  await removeUserFromTeam(teamId, actorId, targetId);
+}
+
+/** Выход из команды. Владельцу сначала нужно передать владение или удалить команду. */
+export async function leaveTeam(teamId, userId) {
+  assertCurrentUser(userId);
+  await removeUserFromTeam(teamId, userId, userId);
+}
+
+/** Передаёт владение другому участнику; прежний владелец становится админом. */
+export async function transferTeamOwnership(teamId, actorId, nextOwnerId) {
+  assertCurrentUser(actorId);
+
+  await runTransaction(db, async (transaction) => {
+    const { teamRef, team } = await readTeamInTransaction(transaction, teamId);
+
+    if (
+      getTeamOwnerId(team) !== actorId ||
+      nextOwnerId === actorId ||
+      !team.memberIds.includes(nextOwnerId)
+    ) {
+      throw new Error('team-permission-denied');
+    }
+
+    transaction.update(teamRef, {
+      ownerId: nextOwnerId,
+      [`roles.${nextOwnerId}`]: 'owner',
+      [`roles.${actorId}`]: 'admin',
+      updatedAt: nowIso(),
+    });
+  });
+}
+
+/** Удаляет команду (только владелец) и выключает её код приглашения. */
+export async function deleteTeam(team, actorId) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'deleteTeam');
+
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'teams', team.id));
+
+  if (team.joinCode) {
+    batch.update(doc(db, 'teamJoinCodes', team.joinCode), {
+      active: false,
+      updatedAt: nowIso(),
+    });
+  }
+
+  await batch.commit();
 }
 
 export async function saveMatchDecision(payload) {

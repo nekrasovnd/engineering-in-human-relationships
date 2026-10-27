@@ -132,6 +132,52 @@ service cloud.firestore {
         && request.resource.data.updatedAt is string;
     }
 
+    // ─── Роли в команде ─────────────────────────────────────────────────────
+    // Зеркало src/utils/teamRoles.js. У старых команд нет ownerId и roles:
+    // владелец = createdBy, остальные — 'member'.
+    function teamOwnerIdOf(data) {
+      return data.get('ownerId', data.createdBy);
+    }
+
+    function teamRolesOf(data) {
+      return data.get('roles', {});
+    }
+
+    function teamRoleOf(data, uid) {
+      return !(uid in data.memberIds)
+        ? 'none'
+        : uid == teamOwnerIdOf(data)
+          ? 'owner'
+          : teamRolesOf(data).get(uid, 'member') in ['admin', 'lead']
+            ? teamRolesOf(data)[uid]
+            : 'member';
+    }
+
+    function hasTeamRole(data, allowed) {
+      return teamRoleOf(data, request.auth.uid) in allowed;
+    }
+
+    function teamDocPath(teamId) {
+      return /databases/$(database)/documents/teams/$(teamId);
+    }
+
+    function teamChangedKeysOnly(keys) {
+      return request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasOnly(keys);
+    }
+
+    function teamRolesDiff() {
+      return teamRolesOf(request.resource.data).diff(teamRolesOf(resource.data));
+    }
+
+    function validTeamRolesMap(data) {
+      return teamRolesOf(data) is map
+        && teamRolesOf(data).values().hasOnly(['owner', 'admin', 'lead'])
+        && teamRolesOf(data).values().removeAll(['admin', 'lead']).size() <= 1;
+    }
+
     function pendingInvite(teamId) {
       return get(
         /databases/$(database)/documents/teamInvites/$(teamId + "_" + request.auth.uid)
@@ -169,9 +215,16 @@ service cloud.firestore {
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.toUid != request.auth.uid
         && request.resource.data.joinCode == null
-        && getAfter(
-          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
-        ).data.createdBy == request.auth.uid;
+        && hasTeamRole(getAfter(teamDocPath(request.resource.data.teamId)).data, ['owner', 'admin'])
+        && !(request.resource.data.toUid in getAfter(teamDocPath(request.resource.data.teamId)).data.memberIds);
+    }
+
+    // Повторное прямое приглашение (после отказа, выхода или исключения).
+    function canReinviteDirect(inviteId) {
+      return inviteId == request.resource.data.teamId + "_" + request.resource.data.toUid
+        && request.resource.data.teamId == resource.data.teamId
+        && request.resource.data.toUid == resource.data.toUid
+        && isDirectInviteDraft();
     }
 
     function isCodeInviteDraft() {
@@ -192,7 +245,14 @@ service cloud.firestore {
     }
 
     function canReuseCodeInvite() {
-      return resource.data.status == 'declined'
+      return (
+          resource.data.status == 'declined'
+          || (
+            resource.data.status == 'accepted'
+            && exists(teamDocPath(resource.data.teamId))
+            && !(request.auth.uid in get(teamDocPath(resource.data.teamId)).data.memberIds)
+          )
+        )
         && resource.data.toUid == request.auth.uid
         && request.resource.data.teamId == resource.data.teamId
         && request.resource.data.toUid == resource.data.toUid
@@ -276,6 +336,8 @@ service cloud.firestore {
           'goal',
           'joinCode',
           'createdBy',
+          'ownerId',
+          'roles',
           'memberIds',
           'memberSnapshots',
           'analysis',
@@ -288,6 +350,10 @@ service cloud.firestore {
         && request.resource.data.goal is string
         && request.resource.data.joinCode is string
         && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.roles is map
+        && request.resource.data.roles.size() == 1
+        && request.resource.data.roles.get(request.auth.uid, '') == 'owner'
         && request.resource.data.memberIds is list
         && request.resource.data.memberIds.size() == 1
         && request.resource.data.memberIds[0] == request.auth.uid
@@ -322,7 +388,7 @@ service cloud.firestore {
     }
 
     function canManageTeamJoinCode() {
-      return request.auth.uid == resource.data.createdBy
+      return hasTeamRole(resource.data, ['owner', 'admin'])
         && request.resource.data.memberIds == resource.data.memberIds
         && request.resource.data.memberSnapshots == resource.data.memberSnapshots
         && request.resource.data.analysis == resource.data.analysis
@@ -333,6 +399,67 @@ service cloud.firestore {
           .diff(resource.data)
           .affectedKeys()
           .hasOnly(['joinCode', 'updatedAt']);
+    }
+
+    function canEditTeamInfo() {
+      return hasTeamRole(resource.data, ['owner', 'admin'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.description is string
+        && request.resource.data.goal is string
+        && request.resource.data.updatedAt is string
+        && teamChangedKeysOnly(['name', 'description', 'goal', 'updatedAt']);
+    }
+
+    // Админ/владелец меняет роль одного участника (не себе и не владельцу).
+    function canSetTeamMemberRole() {
+      let changed = teamRolesDiff().affectedKeys();
+      return hasTeamRole(resource.data, ['owner', 'admin'])
+        && request.resource.data.updatedAt is string
+        && teamChangedKeysOnly(['roles', 'updatedAt'])
+        && changed.size() == 1
+        && !changed.hasAny([request.auth.uid, teamOwnerIdOf(resource.data)])
+        && changed.difference(resource.data.memberIds.toSet()).size() == 0
+        && validTeamRolesMap(request.resource.data);
+    }
+
+    // Исключение участника админом/владельцем или самостоятельный выход.
+    // Владельца удалить нельзя — сначала передача владения.
+    function canRemoveTeamMember() {
+      let removed = resource.data.memberIds.toSet()
+        .difference(request.resource.data.memberIds.toSet());
+      return teamChangedKeysOnly(['memberIds', 'memberSnapshots', 'analysis', 'roles', 'updatedAt'])
+        && request.resource.data.updatedAt is string
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+        && removed.size() == 1
+        && !removed.hasAny([teamOwnerIdOf(resource.data)])
+        && request.resource.data.memberSnapshots is list
+        && resource.data.memberSnapshots is list
+        && request.resource.data.memberSnapshots.size() == resource.data.memberSnapshots.size() - 1
+        && teamRolesDiff().affectedKeys().difference(removed).size() == 0
+        && teamRolesOf(request.resource.data).keys().toSet().intersection(removed).size() == 0
+        && (
+          removed.hasOnly([request.auth.uid])
+          || (
+            hasTeamRole(resource.data, ['owner', 'admin'])
+            && !removed.hasAny([request.auth.uid])
+          )
+        );
+    }
+
+    // Передача владения: прежний владелец становится админом.
+    function canTransferTeamOwnership() {
+      let nextOwnerId = request.resource.data.get('ownerId', '');
+      return teamOwnerIdOf(resource.data) == request.auth.uid
+        && nextOwnerId is string
+        && nextOwnerId != request.auth.uid
+        && nextOwnerId in resource.data.memberIds
+        && request.resource.data.updatedAt is string
+        && teamChangedKeysOnly(['ownerId', 'roles', 'updatedAt'])
+        && teamRolesDiff().affectedKeys().hasOnly([request.auth.uid, nextOwnerId])
+        && teamRolesOf(request.resource.data).get(request.auth.uid, '') == 'admin'
+        && teamRolesOf(request.resource.data).get(nextOwnerId, '') == 'owner';
     }
 
     function validTeamJoinCodeCreate(code) {
@@ -360,13 +487,19 @@ service cloud.firestore {
         && request.resource.data.active == true
         && request.resource.data.createdAt is string
         && request.resource.data.updatedAt is string
-        && getAfter(
-          /databases/$(database)/documents/teams/$(request.resource.data.teamId)
-        ).data.createdBy == request.auth.uid;
+        && hasTeamRole(getAfter(teamDocPath(request.resource.data.teamId)).data, ['owner', 'admin']);
     }
 
+    // Выключение кода и синхронизация названия/описания команды.
+    // get() видит команду до батча, поэтому работает и при удалении команды.
     function canUpdateTeamJoinCode() {
-      return resource.data.createdBy == request.auth.uid
+      return (
+          resource.data.createdBy == request.auth.uid
+          || (
+            exists(teamDocPath(resource.data.teamId))
+            && hasTeamRole(get(teamDocPath(resource.data.teamId)).data, ['owner', 'admin'])
+          )
+        )
         && request.resource.data.keys().hasOnly([
           'code',
           'teamId',
@@ -380,20 +513,16 @@ service cloud.firestore {
           'createdAt',
           'updatedAt',
         ])
-        && request.resource.data.code == resource.data.code
-        && request.resource.data.teamId == resource.data.teamId
-        && request.resource.data.teamName == resource.data.teamName
-        && request.resource.data.teamDescription == resource.data.teamDescription
-        && request.resource.data.teamGoal == resource.data.teamGoal
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdByName == resource.data.createdByName
-        && request.resource.data.createdByAvatarInitials == resource.data.createdByAvatarInitials
-        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.teamName is string
+        && request.resource.data.teamName.size() > 0
+        && request.resource.data.teamDescription is string
+        && request.resource.data.teamGoal is string
         && request.resource.data.active is bool
+        && request.resource.data.updatedAt is string
         && request.resource.data
           .diff(resource.data)
           .affectedKeys()
-          .hasOnly(['active', 'updatedAt']);
+          .hasOnly(['active', 'teamName', 'teamDescription', 'teamGoal', 'updatedAt']);
     }
 
     match /profiles/{userId} {
@@ -428,8 +557,12 @@ service cloud.firestore {
           canRefreshOwnTeamSnapshot()
           || canManageTeamJoinCode()
           || canAcceptInvite(teamId)
+          || canEditTeamInfo()
+          || canSetTeamMemberRole()
+          || canRemoveTeamMember()
+          || canTransferTeamOwnership()
         );
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.createdBy;
+      allow delete: if isSignedIn() && teamRoleOf(resource.data, request.auth.uid) == 'owner';
     }
 
     match /teamInvites/{inviteId} {
@@ -468,6 +601,7 @@ service cloud.firestore {
               .hasOnly(['status', 'respondedAt', 'updatedAt'])
           )
           || canReuseCodeInvite()
+          || canReinviteDirect(inviteId)
         );
       allow delete: if false;
     }

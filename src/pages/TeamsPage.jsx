@@ -1,12 +1,14 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GOAL_OPTIONS, useTeamsWorkspace } from '../hooks/useTeamsWorkspace';
 import { formatEgoStateLabel } from '../utils/egoState';
+import { getTeamRole, TEAM_ROLES } from '../utils/teamRoles';
 import SectionCard from '../components/SectionCard';
-import TeamCard from '../components/TeamCard';
+import TeamListItem from '../components/TeamListItem';
 
 export default function TeamsPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const {
     mutualMatches,
@@ -18,17 +20,12 @@ export default function TeamsPage() {
     respondingInviteId,
     codeInviteValue,
     codeInviteLoading,
-    generatingCodeForTeamId,
-    copiedCodeForTeamId,
-    copyFailedForTeamId,
     codeInviteError,
     codeInviteSuccess,
     inviteActionError,
-    codeSuccess,
     error,
     pendingInvites,
-    createdTeams,
-    joinedTeams,
+    teams,
     updateFormField,
     toggleInvitee,
     updateCodeInviteValue,
@@ -36,14 +33,23 @@ export default function TeamsPage() {
     acceptInvite,
     declineInvite,
     requestInviteByCode,
-    generateCode,
-    copyCode,
   } = useTeamsWorkspace(profile, location.state);
 
   const handleCreateTeam = async (event) => {
     event.preventDefault();
-    await createTeam();
+    const teamId = await createTeam();
+
+    if (teamId) {
+      navigate(`/teams/${teamId}`);
+    }
   };
+
+  // Сначала команды, где у пользователя больше прав.
+  const sortedTeams = [...teams].sort(
+    (left, right) =>
+      TEAM_ROLES[getTeamRole(right, profile.userId) || 'member'].rank -
+      TEAM_ROLES[getTeamRole(left, profile.userId) || 'member'].rank,
+  );
 
   return (
     <div className="space-y-6">
@@ -100,12 +106,6 @@ export default function TeamsPage() {
             {error ? (
               <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
                 {error}
-              </div>
-            ) : null}
-
-            {codeSuccess ? (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                {codeSuccess}
               </div>
             ) : null}
 
@@ -282,103 +282,22 @@ export default function TeamsPage() {
       </SectionCard>
 
       <SectionCard
-        title="Созданные мной"
-        subtitle="Ваши команды, где вы задали состав и исходную рамку."
+        title="Мои команды"
+        subtitle="Откройте команду, чтобы управлять участниками, ролями и приглашениями."
       >
         {teamsLoading ? (
           <p className="text-sm text-slate-400">Загружаем команды...</p>
-        ) : createdTeams.length === 0 ? (
+        ) : sortedTeams.length === 0 ? (
           <p className="text-sm leading-7 text-slate-400">
-            Пока вы не создали ни одной команды.
+            Пока вы не состоите ни в одной команде. Создайте свою или вступите по коду.
           </p>
         ) : (
-          <div className="space-y-5">
-            {createdTeams.map((team) => (
-              <div key={team.id} className="space-y-3">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-                  <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-                    Код приглашения
-                  </p>
-                  {team.joinCode ? (
-                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-display text-2xl tracking-[0.2em] text-white">
-                          {team.joinCode}
-                        </p>
-                        {copiedCodeForTeamId === team.id ? (
-                          <p className="mt-2 text-sm text-emerald-200">
-                            Код скопирован
-                          </p>
-                        ) : copyFailedForTeamId === team.id ? (
-                          <p className="mt-2 text-sm text-amber-200">
-                            Не удалось скопировать. Можно выделить вручную.
-                          </p>
-                        ) : null}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => copyCode(team.id, team.joinCode)}
-                        className={`rounded-2xl border px-4 py-3 text-sm transition ${
-                          copiedCodeForTeamId === team.id
-                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                            : copyFailedForTeamId === team.id
-                              ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                            : 'border-slate-700 text-slate-200 hover:border-blue-400 hover:text-white'
-                        }`}
-                      >
-                        {copiedCodeForTeamId === team.id
-                          ? 'Скопировано'
-                          : copyFailedForTeamId === team.id
-                            ? 'Не удалось'
-                          : 'Скопировать код'}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm leading-6 text-slate-400">
-                        У этой команды ещё нет кода. Его можно создать и отправить человеку напрямую.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => generateCode(team)}
-                        disabled={generatingCodeForTeamId === team.id}
-                        className="rounded-2xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {generatingCodeForTeamId === team.id
-                          ? 'Создаём код...'
-                          : 'Создать код'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <TeamCard
-                  team={team}
-                  memberProfiles={team.memberSnapshots || []}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
-
-      <SectionCard
-        title="Команды, где я участвую"
-        subtitle="Команды, куда вас пригласили и где вы уже стали частью общего контура."
-      >
-        {teamsLoading ? (
-          <p className="text-sm text-slate-400">Загружаем команды...</p>
-        ) : joinedTeams.length === 0 ? (
-          <p className="text-sm leading-7 text-slate-400">
-            Пока вы ещё не вступили ни в одну чужую команду.
-          </p>
-        ) : (
-          <div className="space-y-5">
-            {joinedTeams.map((team) => (
-              <TeamCard
+          <div className="grid gap-4 lg:grid-cols-2">
+            {sortedTeams.map((team) => (
+              <TeamListItem
                 key={team.id}
                 team={team}
-                memberProfiles={team.memberSnapshots || []}
+                role={getTeamRole(team, profile.userId)}
               />
             ))}
           </div>

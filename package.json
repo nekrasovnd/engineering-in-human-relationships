@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:emulators": "vite --mode emulators",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-kod",
+    "seed:emulators": "node scripts/seed-emulators.cjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-kod \"node --test tests/*.test.cjs\""
   },
   "dependencies": {
     "chart.js": "^4.4.3",
@@ -18,8 +22,10 @@
     "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "firebase-tools": "^13.35.1",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
     "vite": "^5.4.1"
