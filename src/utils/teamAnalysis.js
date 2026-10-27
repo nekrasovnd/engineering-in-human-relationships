@@ -54,6 +54,13 @@ const TEAM_FUNCTIONS = [
   },
 ];
 
+/**
+ * Находит пару участников с наибольшим риском конфликта (min compatibility).
+ * Используется в TeamCard для отображения самой напряжённой пары.
+ *
+ * @param {Object[]} memberProfiles - Массив профилей (прошедших hasComparableProfileData)
+ * @returns {Object|null} Объединенный объект {left, right, ...ComparisonResult} или null
+ */
 export function findMostConflictPair(memberProfiles) {
   if (memberProfiles.length < 2) {
     return null;
@@ -80,6 +87,14 @@ export function findMostConflictPair(memberProfiles) {
   return pair;
 }
 
+/**
+ * Назначает каждому участнику роль, которая ему естественнее даётся.
+ * Каждая роль назначается только одному человеку (гредически).
+ * Оставшиеся участники получают роль 'Гибкий участник'.
+ *
+ * @param {Object[]} memberProfiles - Массив профилей команды
+ * @returns {Array<{role: string, userId: string, name: string, fitScore: number, reason: string}>}
+ */
 export function getRecommendedRoles(memberProfiles) {
   const unassigned = [...memberProfiles];
   const assignments = [];
@@ -126,6 +141,13 @@ export function getRecommendedRoles(memberProfiles) {
   return assignments;
 }
 
+/**
+ * Строит текстовое резюме команды (общий режим, сильные стороны, предупреждение).
+ * Анализирует средние значения системных индексов и факторов по всей команде.
+ *
+ * @param {Object[]} memberProfiles - Массив профилей (прошедших hasComparableProfileData)
+ * @returns {{ summary: string, strength: string, caution: string }}
+ */
 export function buildTeamSummary(memberProfiles) {
   if (memberProfiles.length === 0) {
     return {

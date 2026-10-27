@@ -35,6 +35,11 @@ export function AuthProvider({ children }) {
   const discoverSyncRef = useRef('');
   const migrationSyncRef = useRef('');
 
+  // ─── useEffect 1: Основная подписка на Auth + Profile ───────────────────────
+  // Слушает onAuthStateChanged и, при наличии пользователя, подписывается на
+  // Firestore-документ 'profiles/{uid}' через onSnapshot.
+  // Подписка на профиль пересоздаётся при каждой смене пользователя.
+  // При выходе — обнуляет user и profile.
   useEffect(() => {
     let unsubscribeProfile = null;
 
@@ -78,6 +83,11 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // ─── useEffect 2: Синхронизация discoverProfile ───────────────────────────
+  // Если профиль готов (опросник пройден, discoverVisible = true), но документ
+  // в 'discoverProfiles' отсутствует — создаёт его через saveProfile.
+  // Это происходит один раз за сессию (дедупликация через discoverSyncRef).
+  // Сценарий: пользователь включил видимость до того, как профиль был создан.
   useEffect(() => {
     if (!user || !canUseDiscover(profile)) {
       return;
@@ -113,6 +123,14 @@ export function AuthProvider({ children }) {
     };
   }, [profile, user]);
 
+  // ─── useEffect 3: Миграция модели профиля ────────────────────────────────
+  // Запускается если профиль имеет ответы (answers), но НЕ имеет:
+  //   factorReliability, systemIndices или profileIntegrity.
+  // Это означает, что профиль был создан по старой модели данных и нуждается
+  // в пересчёте. Пересчитывает все производные поля и сохраняет через saveProfile.
+  // Дедупликация через migrationSyncRef исключает повторный запуск в той же сессии.
+  //
+  // ⚠️ Не трогать без понимания схемы данных профиля.
   useEffect(() => {
     if (
       !user ||

@@ -1,29 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="ehr-favicon-ring" x1="14" y1="12" x2="50" y2="52" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7DD3FC" />
-      <stop offset="1" stop-color="#60A5FA" />
-    </linearGradient>
-    <linearGradient id="ehr-favicon-link" x1="20" y1="18" x2="44" y2="46" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#E0F2FE" />
-      <stop offset="1" stop-color="#93C5FD" />
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
     </linearGradient>
   </defs>
 
-  <circle cx="32" cy="32" r="28" fill="#0F172A" />
-  <circle cx="32" cy="32" r="27" stroke="url(#ehr-favicon-ring)" stroke-opacity="0.28" stroke-width="2" />
+  <!-- Outer circle -->
+  <circle cx="32" cy="32" r="30" stroke="url(#g1)" stroke-width="2.5" fill="none"/>
 
-  <path
-    d="M22 22L32 32L42 22M22 42L32 32L42 42"
-    stroke="url(#ehr-favicon-link)"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    stroke-width="4"
-  />
+  <!-- Left head silhouette -->
+  <path d="M22 44 C22 44 18 42 17 37 C16 32 18 26 22 23 C25 20 28 20 29 22 C30 24 29 28 28 30 C27 32 26 34 26 37 C26 40 27 42 28 44 Z"
+        fill="url(#g1)" opacity="0.85"/>
 
-  <circle cx="22" cy="22" r="4.5" fill="#7DD3FC" />
-  <circle cx="42" cy="22" r="4.5" fill="#60A5FA" />
-  <circle cx="22" cy="42" r="4.5" fill="#38BDF8" />
-  <circle cx="42" cy="42" r="4.5" fill="#3B82F6" />
-  <circle cx="32" cy="32" r="5.5" fill="#E0F2FE" />
+  <!-- Right head silhouette (mirrored) -->
+  <path d="M42 44 C42 44 46 42 47 37 C48 32 46 26 42 23 C39 20 36 20 35 22 C34 24 35 28 36 30 C37 32 38 34 38 37 C38 40 37 42 36 44 Z"
+        fill="url(#g1)" opacity="0.85"/>
+
+  <!-- Circuit tree - main trunk -->
+  <line x1="32" y1="44" x2="32" y2="30" stroke="url(#g1)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Circuit branches -->
+  <line x1="32" y1="38" x2="27" y2="34" stroke="url(#g1)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="38" x2="37" y2="34" stroke="url(#g1)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="33" x2="26" y2="29" stroke="url(#g1)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="33" x2="38" y2="29" stroke="url(#g1)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="32" y1="30" x2="32" y2="24" stroke="url(#g1)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Circuit nodes -->
+  <circle cx="27" cy="34" r="2" fill="url(#g1)"/>
+  <circle cx="37" cy="34" r="2" fill="url(#g1)"/>
+  <circle cx="26" cy="29" r="2" fill="url(#g1)"/>
+  <circle cx="38" cy="29" r="2" fill="url(#g1)"/>
+  <circle cx="32" cy="24" r="2.5" fill="url(#g1)"/>
+
+  <!-- Bottom arc connectors -->
+  <path d="M17 37 Q32 48 47 37" stroke="url(#g1)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <circle cx="17" cy="37" r="2" fill="url(#g1)"/>
+  <circle cx="47" cy="37" r="2" fill="url(#g1)"/>
 </svg>

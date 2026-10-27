@@ -1,0 +1,111 @@
+# src/utils — Вспомогательные функции
+
+Чистые функции без сайд-эффектов. Не обращаются к Firebase, не хранят состояние.
+
+---
+
+## Модули
+
+### `compatibility.js`
+Алгоритм вычисления совместимости двух профилей.
+
+**Экспорты:**
+- `calculateCompatibility(profileA, profileB)` → `ComparisonResult`
+  - Возвращает: `compatibility` (%), `conflictRisk`, `verdict`, `teamFitLabel`, `supportPoint`, `frictionPoint`, `explanation`, `pairSummary`, `resonanceScore`, `pairReserveScore`, `reliabilityScore`
+- `hasComparableProfileData(profile)` → `boolean` — проверяет наличие `factorScores`
+
+> ⚠️ Алгоритм не менять без понимания всей формульной цепочки.
+
+---
+
+### `teamAnalysis.js`
+Анализ состава команды на основе набора профилей.
+
+**Экспорты:**
+- `buildTeamSummary(memberProfiles)` → `{ summary, strength, caution }` — текстовый обзор команды
+- `findMostConflictPair(memberProfiles)` → `ComparisonResult | null` — пара с наибольшим риском трения
+- `getRecommendedRoles(memberProfiles)` → `RoleRecommendation[]` — рекомендуемые роли
+
+---
+
+### `egoState.js`
+Форматирование эго-состояния профиля в читаемый label.
+
+**Экспорты:**
+- `formatEgoStateLabel(egoState)` → `string`
+
+---
+
+### `profileState.js`
+Утилиты для проверки состояния профиля.
+
+**Экспорты:**
+- `canUseDiscover(profile)` → `boolean` — завершён ли опросник и включена ли видимость
+- `isDiscoverVisible(profile)` → `boolean`
+
+---
+
+### `profilePresentation.js`
+Функции для отображения данных профиля.
+
+**Экспорты:**
+- `buildAvatarInitials(name)` → `string` — инициалы из имени (до 2 букв)
+- `getFactorProfileExplanation(factor, score)` → `string` — текстовое объяснение значения фактора
+
+---
+
+### `profileAnalysis.js`
+Построение нарратива и инструкций на основе профиля.
+
+**Экспорты:**
+- `buildProfileNarrative(profile)` → `{ summary, strengths, risks, teamPrediction }`
+- `buildInstructionLines()` → `string[]` — строки памятки для `InstructionCard`
+
+---
+
+### `comparisonCandidates.js`
+Фильтрация и объединение кандидатов для сравнения.
+
+**Экспорты:**
+- `mergeComparisonCandidates(mutualMatches, teams, currentUserId)` → `Profile[]` — объединяет взаимные совпадения и участников команд без дублирования
+- `buildUndecidedProfiles(profiles, decisions)` → `Profile[]` — исключает уже оценённых кандидатов
+
+---
+
+### `firestoreDocuments.js`
+Нормализация (санитизация) сырых документов из Firestore.
+
+**Экспорты:**
+- `sanitizeDiscoverProfile(raw)` → `DiscoverProfile | null`
+- `sanitizeTeamInvite(raw, id)` → `TeamInvite | null`
+- `sanitizeTeam(raw, id)` → `Team | null`
+- `sanitizeMatchAction(raw)` → `MatchAction | null`
+
+> Все функции возвращают `null` при невалидных данных — используйте `.filter(Boolean)` после маппинга.
+
+---
+
+### `avatarImage.js`
+Обработка изображения аватара перед сохранением.
+
+**Экспорты:**
+- `prepareAvatarImage(file)` → `Promise<string>` — валидирует, кропает, конвертирует в base64
+  - Бросает: `Error('invalid-file-type')`, `Error('file-too-large')`
+
+---
+
+### `trizKnowledge.js`
+База знаний ТРИЗ + поиск + генерация подсказок по конфликту.
+
+**Экспорты:**
+- `TRIZ_KNOWLEDGE` — константа с `{ laws, principles, analogies, teamExamples }`
+- `searchKnowledge(query)` → отфильтрованная копия `TRIZ_KNOWLEDGE`
+- `getConflictResolutionHints(profileA, profileB, comparison)` → `Hint[]` — до 2 принципов ТРИЗ
+
+---
+
+## Правила
+
+- Функции в `utils/` должны быть **чистыми** (без сайд-эффектов, без React-хуков)
+- Перед добавлением новой функции — проверьте, нет ли похожей в существующих модулях
+- Не добавляйте сюда Firestore-логику — она принадлежит `services/`

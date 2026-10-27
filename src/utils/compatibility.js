@@ -21,6 +21,13 @@ const FACTOR_META = Object.fromEntries(
   FACTOR_CONFIG.map((factor) => [factor.key, factor]),
 );
 
+/**
+ * Проверяет, содержит ли профиль все необходимые факторные оценки для сравнения.
+ * Используется для фильтрации участников команды перед анализом.
+ *
+ * @param {Object} profile - Профиль пользователя
+ * @returns {boolean}
+ */
 export function hasComparableProfileData(profile) {
   return FACTOR_ORDER.every(
     (key) => typeof profile?.factorScores?.[key] === 'number',
@@ -146,6 +153,21 @@ function buildTeamFitLabel(verdict, pairReserveScore) {
   return 'Лучше не без рамки';
 }
 
+/**
+ * Вычисляет полный результат сравнения двух профилей.
+ *
+ * Алгоритм:
+ * 1. Взвешенное евклидово расстояние по 8 факторам (distanceScore)
+ * 2. Резонанс коммуникации (resonanceScore) — на основе разрывов по extraversion, feedbackNeed, empathy
+ * 3. Резерв пары (pairReserveScore) — из systemIndices обоих профилей
+ * 4. Надёжность профилей (reliabilityScore) — из profileIntegrity
+ * 5. Итоговый compatibility = distanceScore*0.55 + resonanceScore*0.25 + pairReserveScore*0.15 + reliabilityScore*0.05
+ *
+ * @param {Object} firstProfile - Первый профиль (должен пройти hasComparableProfileData)
+ * @param {Object} secondProfile - Второй профиль (должен пройти hasComparableProfileData)
+ * @returns {ComparisonResult} Полный объект результата сравнения
+ * @throws {Error} 'invalid-profile-data' если у одного из профилей нет factorScores
+ */
 export function calculateCompatibility(firstProfile, secondProfile) {
   if (
     !hasComparableProfileData(firstProfile) ||
@@ -317,6 +339,17 @@ export function calculateCompatibility(firstProfile, secondProfile) {
   };
 }
 
+/**
+ * Строит текстовую рекомендацию по управлению взаимодействием двух людей.
+ * Учитывает эго-состояния, потребность в обратной связи, разрывы по коммуникации,
+ * структуре, стрессу и резерву пары.
+ *
+ * @param {Object} firstProfile
+ * @param {Object} secondProfile
+ * @param {'Низкий'|'Средний'|'Высокий'} conflictRisk
+ * @param {Object} [metrics={}] - Метрики из calculateCompatibility (gaps и scores)
+ * @returns {string} Текстовая рекомендация
+ */
 export function buildManagementRecommendation(
   firstProfile,
   secondProfile,

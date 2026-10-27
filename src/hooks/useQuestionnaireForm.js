@@ -6,6 +6,7 @@ import {
   getInitialAnswers,
 } from '../data/questionnaire';
 import { saveProfile, saveQuestionnaireDraft } from '../services/firestore';
+import { buildAvatarInitials } from '../utils/profilePresentation';
 import { buildProfileNarrative } from '../utils/profileAnalysis';
 
 const AUTOSAVE_DELAY_MS = 900;
@@ -15,14 +16,6 @@ const EMPTY_BASE_FORM = {
   gender: '',
 };
 
-function getInitials(name) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((item) => item[0]?.toUpperCase() || '')
-    .join('');
-}
 
 function buildDraftSnapshot(baseForm, answers) {
   return JSON.stringify({
@@ -38,7 +31,7 @@ function buildDraftPayload(baseForm, answers) {
   const payload = {
     name: baseForm.name,
     gender: baseForm.gender,
-    avatarInitials: getInitials(baseForm.name),
+    avatarInitials: buildAvatarInitials(baseForm.name),
     answers,
   };
 
@@ -216,7 +209,7 @@ export function useQuestionnaireForm(user, profile) {
         name: baseForm.name.trim(),
         age,
         gender: baseForm.gender,
-        avatarInitials: getInitials(baseForm.name),
+        avatarInitials: buildAvatarInitials(baseForm.name),
         answers,
         factorScores: result.factorScores,
         factorReliability: result.factorReliability,

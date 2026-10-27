@@ -317,6 +317,18 @@ async function syncProfileAcrossTeams(userId, profile, updatedAt) {
   await batch.commit();
 }
 
+/**
+ * Сохраняет (merge) профиль пользователя в 'profiles/{userId}'.
+ *
+ * В зависимости от состояния профиля:
+ * - Если discoverVisible && questionnaireCompleted → обновляет 'discoverProfiles/{userId}'
+ * - Иначе → удаляет документ из 'discoverProfiles'
+ * - Затем синхронизирует снапшот профиля во всех командах пользователя
+ *
+ * @param {string} userId - ID пользователя (должен совпадать с auth.currentUser.uid)
+ * @param {Object} payload - Частичные данные профиля (пройдут через sanitizeProfilePatch)
+ * @throws {Error} 'auth-user-mismatch' если userId не совпадает с текущим пользователем
+ */
 export async function saveProfile(userId, payload) {
   assertCurrentUser(userId);
 
@@ -377,6 +389,14 @@ export async function saveProfile(userId, payload) {
   await syncProfileAcrossTeams(userId, nextPrivateProfile, updatedAt);
 }
 
+/**
+ * Сохраняет черновик опросника в 'profiles/{userId}' без сброса questionnaireCompleted.
+ * Вызывается автоматически через debounce из useQuestionnaireForm.
+ * Не обновляет discoverProfiles — только черновик.
+ *
+ * @param {string} userId
+ * @param {Object} payload
+ */
 export async function saveQuestionnaireDraft(userId, payload) {
   assertCurrentUser(userId);
 
