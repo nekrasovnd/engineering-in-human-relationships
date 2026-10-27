@@ -88,7 +88,26 @@
 Только владелец. Прежний владелец становится админом.
 
 #### `deleteTeam(team, actorId)`
-Только владелец. Удаляет команду и выключает её код.
+Только владелец. Удаляет задачи, итерации, саму команду и выключает её код.
+
+### Итерации и задачи (`utils/teamPlanning.js`)
+
+Ведут владелец, админы и тимлиды. Исполнитель меняет только статус своей задачи.
+
+#### `createTeamIteration(team, actorId, { title, goal, startDate, deadline })` → `id`
+#### `updateTeamIteration(team, iteration, actorId, input)`
+#### `setTeamIterationStatus(team, iteration, actorId, 'active' | 'closed')`
+#### `deleteTeamIteration(team, iteration, actorId, tasks)`
+Задачи удалённой итерации остаются в команде без итерации.
+
+#### `createTeamTask(team, actorId, input)` → `id` / `updateTeamTask(team, task, actorId, input)`
+`input`: `title, description, status, priority, assigneeIds, iterationId, deadline`.
+Новые исполнители — только участники команды.
+
+#### `updateTeamTaskStatus(team, task, actorId, status)`
+Планирующие роли — любая задача, остальные — только назначенная им.
+
+#### `deleteTeamTask(team, task, actorId)`
 
 ---
 
@@ -123,6 +142,9 @@ teams/{teamId}              — команда
   ownerId                   — владелец (у старых команд нет → createdBy)
   roles                     — { uid: 'owner' | 'admin' | 'lead' }, нет ключа → 'member'
   memberIds, memberSnapshots — состав и снапшоты профилей участников
+  iterations/{id}           — итерации: title, goal, startDate, deadline, status
+  tasks/{id}                — задачи: title, status, priority, assigneeIds,
+                              iterationId, deadline ('YYYY-MM-DD'), completedAt
 teamJoinCodes/{code}        — код вступления в команду
 teamInvites/{inviteId}      — приглашение в команду
 ```

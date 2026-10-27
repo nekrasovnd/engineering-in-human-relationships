@@ -287,6 +287,14 @@ export function useTeamWorkspace(teamId, profile) {
     error,
     notice,
     codeCopyState,
+    showError: (message) => {
+      setNotice('');
+      setError(message);
+    },
+    showNotice: (message) => {
+      setError('');
+      setNotice(message);
+    },
     updateInfoField,
     saveInfo,
     changeMemberRole,

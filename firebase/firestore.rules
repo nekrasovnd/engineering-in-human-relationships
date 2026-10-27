@@ -462,6 +462,105 @@ service cloud.firestore {
         && teamRolesOf(request.resource.data).get(nextOwnerId, '') == 'owner';
     }
 
+    // ─── Итерации и задачи (teams/{teamId}/iterations|tasks) ───────────────
+    // Ведут владелец, админы и тимлиды; исполнитель меняет только статус.
+    function teamDataOf(teamId) {
+      return get(teamDocPath(teamId)).data;
+    }
+
+    function isTeamMemberOf(teamId) {
+      return exists(teamDocPath(teamId))
+        && request.auth.uid in teamDataOf(teamId).memberIds;
+    }
+
+    function isTeamPlanner(teamId) {
+      return exists(teamDocPath(teamId))
+        && hasTeamRole(teamDataOf(teamId), ['owner', 'admin', 'lead']);
+    }
+
+    function validPlanDate(value) {
+      return value is string
+        && (value == '' || value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
+    }
+
+    function validIterationWrite() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'title',
+          'goal',
+          'startDate',
+          'deadline',
+          'status',
+          'createdBy',
+          'createdAt',
+          'updatedAt',
+          'closedAt',
+        ])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 200
+        && data.goal is string
+        && data.goal.size() <= 2000
+        && validPlanDate(data.startDate)
+        && validPlanDate(data.deadline)
+        && data.deadline != ''
+        && data.status in ['active', 'closed']
+        && data.createdBy is string
+        && data.createdAt is string
+        && data.updatedAt is string
+        && data.closedAt is string;
+    }
+
+    // Новые исполнители — только из участников; уже назначенных можно оставить.
+    function validTaskWrite(teamId) {
+      let data = request.resource.data;
+      let previousAssignees = resource == null ? [].toSet() : resource.data.assigneeIds.toSet();
+      return data.keys().hasOnly([
+          'title',
+          'description',
+          'status',
+          'priority',
+          'assigneeIds',
+          'iterationId',
+          'deadline',
+          'createdBy',
+          'createdAt',
+          'updatedAt',
+          'completedAt',
+        ])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 200
+        && data.description is string
+        && data.description.size() <= 2000
+        && data.status in ['todo', 'in_progress', 'review', 'done']
+        && data.priority in ['low', 'medium', 'high']
+        && data.assigneeIds is list
+        && data.assigneeIds.size() <= 20
+        && data.assigneeIds.toSet()
+          .difference(previousAssignees)
+          .difference(teamDataOf(teamId).memberIds.toSet())
+          .size() == 0
+        && data.iterationId is string
+        && validPlanDate(data.deadline)
+        && data.createdBy is string
+        && data.createdAt is string
+        && data.updatedAt is string
+        && data.completedAt is string;
+    }
+
+    function canUpdateOwnTaskStatus(teamId) {
+      return request.auth.uid in resource.data.assigneeIds
+        && isTeamMemberOf(teamId)
+        && request.resource.data.status in ['todo', 'in_progress', 'review', 'done']
+        && request.resource.data.updatedAt is string
+        && request.resource.data.completedAt is string
+        && request.resource.data
+          .diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['status', 'updatedAt', 'completedAt']);
+    }
+
     function validTeamJoinCodeCreate(code) {
       return request.resource.data.keys().hasOnly([
           'code',
@@ -563,6 +662,39 @@ service cloud.firestore {
           || canTransferTeamOwnership()
         );
       allow delete: if isSignedIn() && teamRoleOf(resource.data, request.auth.uid) == 'owner';
+
+      match /iterations/{iterationId} {
+        allow read: if isSignedIn() && isTeamMemberOf(teamId);
+        allow create: if isSignedIn()
+          && isTeamPlanner(teamId)
+          && validIterationWrite()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && isTeamPlanner(teamId)
+          && validIterationWrite()
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isSignedIn() && isTeamPlanner(teamId);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isSignedIn() && isTeamMemberOf(teamId);
+        allow create: if isSignedIn()
+          && isTeamPlanner(teamId)
+          && validTaskWrite(teamId)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isSignedIn()
+          && (
+            (
+              isTeamPlanner(teamId)
+              && validTaskWrite(teamId)
+              && request.resource.data.createdBy == resource.data.createdBy
+              && request.resource.data.createdAt == resource.data.createdAt
+            )
+            || canUpdateOwnTaskStatus(teamId)
+          );
+        allow delete: if isSignedIn() && isTeamPlanner(teamId);
+      }
     }
 
     match /teamInvites/{inviteId} {

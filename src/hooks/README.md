@@ -114,6 +114,17 @@ useTeamsWorkspace(profile, locationState)
 useTeamWorkspace(teamId, profile)
 ```
 
+### `useTeamPlanningData.js`
+Подписка на подколлекции `iterations` и `tasks` команды → `{ iterations, tasks, loading }`.
+
+### `useTeamPlanning.js`
+Вкладки «Задачи» и «Итерации»: фильтры (итерация, «только мои»), формы задачи и
+итерации, операции. Ошибки и уведомления отдаёт через `onError` / `onNotice`.
+
+```js
+useTeamPlanning(team, profile, { onError, onNotice })
+```
+
 ### `useQuestionnaireForm.js`
 Состояние страницы `/questionnaire`:
 - Гидратация из профиля при первом рендере

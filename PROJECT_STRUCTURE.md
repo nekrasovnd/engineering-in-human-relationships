@@ -43,6 +43,8 @@ src/
 │   ├── useDiscoverWorkspace.js  # Всё состояние страницы знакомств
 │   ├── useTeamsWorkspace.js     # Список команд, создание, входящие приглашения
 │   ├── useTeamWorkspace.js      # Страница одной команды: участники, роли, настройки
+│   ├── useTeamPlanningData.js   # Подписка на итерации и задачи команды
+│   ├── useTeamPlanning.js       # Вкладки «Задачи» и «Итерации»: фильтры, формы, операции
 │   └── useQuestionnaireForm.js  # Состояние опросника (автосохранение черновика, валидация)
 │
 ├── pages/                    # Страницы приложения (по одной на маршрут)
@@ -52,7 +54,7 @@ src/
 │   ├── DiscoverPage.jsx      # /discover — лента знакомств, взаимные совпадения
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
 │   ├── TeamsPage.jsx         # /teams — создание команд, приглашения, список команд
-│   ├── TeamPage.jsx          # /teams/:teamId — обзор, участники и роли, настройки
+│   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, участники, настройки
 │   └── KnowledgeBasePage.jsx # /knowledge — база знаний ТРИЗ с поиском
 │
 ├── components/               # Переиспользуемые UI-компоненты
@@ -69,6 +71,13 @@ src/
 │   ├── TeamRoleBadge.jsx     # Бейдж роли участника
 │   ├── TeamMembersPanel.jsx  # Участники: роли, исключение, передача владения, приглашения
 │   ├── TeamSettingsPanel.jsx # Данные команды, матрица прав, выход/удаление
+│   ├── TeamTasksPanel.jsx    # Канбан задач с фильтрами
+│   ├── TaskCard.jsx          # Карточка задачи (дедлайн, исполнители, статус)
+│   ├── TaskFormDialog.jsx    # Модальное окно создания/редактирования задачи
+│   ├── TeamIterationsPanel.jsx # Итерации: создание, закрытие, прогресс
+│   ├── IterationProgress.jsx # Даты, дедлайн и прогресс итерации
+│   ├── CurrentIterationCard.jsx # Текущая итерация на обзоре команды
+│   ├── DeadlineBadge.jsx     # Бейдж дедлайна (срочно / просрочено)
 │   ├── ComparisonResultCard.jsx # Результат сравнения двух профилей
 │   ├── ProfileInsightCard.jsx   # Психологический разбор профиля (нарратив)
 │   └── InstructionCard.jsx      # Памятка «Быстро и по делу»
@@ -81,6 +90,7 @@ src/
     ├── compatibility.js      # calculateCompatibility() — алгоритм совместимости двух профилей
     ├── teamAnalysis.js       # buildTeamSummary(), findMostConflictPair(), getRecommendedRoles()
     ├── teamRoles.js          # Роли в команде (owner/admin/lead/member) и матрица прав
+    ├── teamPlanning.js       # Статусы задач, дедлайны, прогресс итераций
     ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля

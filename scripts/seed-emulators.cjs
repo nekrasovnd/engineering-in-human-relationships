@@ -25,6 +25,16 @@ const USERS = [
   { login: 'guest', name: 'Дина Кандидат', bias: [4, 5, 3, 2, 4, 4, 3, 4] },
 ];
 
+function daysFromToday(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 async function createAuthUser(email) {
   const response = await fetch(
     `${AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
@@ -142,6 +152,54 @@ async function main() {
       createdAt: NOW,
       updatedAt: NOW,
     });
+
+    const iterationBase = {
+      goal: '',
+      createdBy: byLogin.lead.userId,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    await setDoc(doc(db, 'teams', 'demo-team', 'iterations', 'iter-1'), {
+      ...iterationBase,
+      title: 'Итерация 1 — исследование',
+      startDate: daysFromToday(-21),
+      deadline: daysFromToday(-8),
+      status: 'closed',
+      closedAt: NOW,
+    });
+    await setDoc(doc(db, 'teams', 'demo-team', 'iterations', 'iter-2'), {
+      ...iterationBase,
+      title: 'Итерация 2 — прототип',
+      goal: 'Показать кликабельный прототип экрана команды.',
+      startDate: daysFromToday(-7),
+      deadline: daysFromToday(6),
+      status: 'active',
+      closedAt: '',
+    });
+
+    const tasks = [
+      ['Интервью с пользователями', 'iter-1', 'done', 'high', ['member'], ''],
+      ['Собрать макет экрана команды', 'iter-2', 'in_progress', 'high', ['member'], daysFromToday(1)],
+      ['Описать роли и права', 'iter-2', 'review', 'medium', ['admin'], ''],
+      ['Подготовить демо для заказчика', 'iter-2', 'todo', 'medium', ['lead', 'member'], ''],
+      ['Починить вёрстку на телефоне', 'iter-2', 'todo', 'low', ['member'], daysFromToday(-1)],
+    ];
+
+    for (const [index, [title, iterationId, status, priority, assignees, deadline]] of tasks.entries()) {
+      await setDoc(doc(db, 'teams', 'demo-team', 'tasks', `task-${index + 1}`), {
+        title,
+        description: '',
+        status,
+        priority,
+        assigneeIds: assignees.map((login) => byLogin[login].userId),
+        iterationId,
+        deadline,
+        createdBy: byLogin.lead.userId,
+        createdAt: NOW,
+        updatedAt: NOW,
+        completedAt: status === 'done' ? NOW : '',
+      });
+    }
   });
 
   await testEnv.cleanup();

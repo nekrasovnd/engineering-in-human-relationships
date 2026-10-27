@@ -31,13 +31,13 @@ export const TEAM_ROLES = {
     key: 'lead',
     label: 'Тимлид',
     rank: 1,
-    description: 'Ставит дедлайны и ведёт работу, но не меняет описание команды и не назначает роли.',
+    description: 'Ведёт итерации, ставит дедлайны и раздаёт задачи, но не меняет описание команды и не назначает роли.',
   },
   member: {
     key: 'member',
     label: 'Участник',
     rank: 0,
-    description: 'Обычный участник: выполняет задачи, проходит опросы и оценивает коллег.',
+    description: 'Обычный участник: выполняет свои задачи и двигает их по статусам.',
   },
 };
 
@@ -50,6 +50,8 @@ export const TEAM_PERMISSIONS = {
   invite: ['owner', 'admin'],
   manageMembers: ['owner', 'admin'],
   setDeadlines: ['owner', 'admin', 'lead'],
+  manageTasks: ['owner', 'admin', 'lead'],
+  updateOwnTasks: ['owner', 'admin', 'lead', 'member'],
   transferOwnership: ['owner'],
   deleteTeam: ['owner'],
   leave: ['admin', 'lead', 'member'],
@@ -59,7 +61,9 @@ export const TEAM_PERMISSION_LABELS = [
   { action: 'editInfo', label: 'Менять название и описание' },
   { action: 'invite', label: 'Приглашать участников, код команды' },
   { action: 'manageMembers', label: 'Назначать роли и исключать' },
-  { action: 'setDeadlines', label: 'Ставить дедлайны' },
+  { action: 'setDeadlines', label: 'Вести итерации и дедлайны' },
+  { action: 'manageTasks', label: 'Создавать и назначать задачи' },
+  { action: 'updateOwnTasks', label: 'Менять статус своих задач' },
   { action: 'transferOwnership', label: 'Передавать владение' },
   { action: 'deleteTeam', label: 'Удалить команду' },
 ];

@@ -2,15 +2,22 @@ import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTeamPlanning } from '../hooks/useTeamPlanning';
 import { useTeamWorkspace } from '../hooks/useTeamWorkspace';
+import CurrentIterationCard from '../components/CurrentIterationCard';
 import SectionCard from '../components/SectionCard';
+import TaskFormDialog from '../components/TaskFormDialog';
 import TeamCard from '../components/TeamCard';
+import TeamIterationsPanel from '../components/TeamIterationsPanel';
 import TeamMembersPanel from '../components/TeamMembersPanel';
 import TeamRoleBadge from '../components/TeamRoleBadge';
 import TeamSettingsPanel from '../components/TeamSettingsPanel';
+import TeamTasksPanel from '../components/TeamTasksPanel';
 
 const TABS = [
   { key: 'overview', label: 'Обзор' },
+  { key: 'tasks', label: 'Задачи' },
+  { key: 'iterations', label: 'Итерации' },
   { key: 'members', label: 'Участники' },
   { key: 'settings', label: 'Настройки' },
 ];
@@ -20,8 +27,23 @@ export default function TeamPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const workspace = useTeamWorkspace(teamId, profile);
-  const [activeTab, setActiveTab] = useState('overview');
   const { loading, team, myRole, error, notice } = workspace;
+  const planning = useTeamPlanning(team, profile, {
+    onError: workspace.showError,
+    onNotice: workspace.showNotice,
+  });
+  const [activeTab, setActiveTab] = useState('overview');
+
+  const openMyTasks = () => {
+    planning.setOnlyMine(true);
+    setActiveTab('tasks');
+  };
+
+  const showIterationTasks = (iterationId) => {
+    planning.setIterationFilter(iterationId);
+    planning.setOnlyMine(false);
+    setActiveTab('tasks');
+  };
 
   if (loading) {
     return <p className="text-sm text-slate-400">Загружаем команду...</p>;
@@ -42,7 +64,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="space-y-4">
         <div>
           <Link
             to="/teams"
@@ -60,13 +82,13 @@ export default function TeamPage() {
           </p>
         </div>
 
-        <div className="flex gap-1 rounded-2xl border border-slate-800 bg-slate-950/40 p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-1 sm:inline-flex">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`rounded-xl px-4 py-2 text-sm transition ${
+              className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm transition ${
                 activeTab === tab.key
                   ? 'bg-blue-500/15 text-blue-300'
                   : 'text-slate-400 hover:bg-slate-900 hover:text-white'
@@ -95,8 +117,28 @@ export default function TeamPage() {
       ) : null}
 
       {activeTab === 'overview' ? (
-        <TeamCard team={team} memberProfiles={team.memberSnapshots} />
+        <>
+          <CurrentIterationCard
+            planning={planning}
+            onOpenTasks={openMyTasks}
+            onOpenIterations={() => {
+              planning.openNewIteration();
+              setActiveTab('iterations');
+            }}
+          />
+          <TeamCard team={team} memberProfiles={team.memberSnapshots} />
+        </>
       ) : null}
+
+      {activeTab === 'tasks' ? (
+        <TeamTasksPanel planning={planning} currentUserId={profile.userId} />
+      ) : null}
+
+      {activeTab === 'iterations' ? (
+        <TeamIterationsPanel planning={planning} onShowTasks={showIterationTasks} />
+      ) : null}
+
+      <TaskFormDialog team={team} planning={planning} />
 
       {activeTab === 'members' ? <TeamMembersPanel workspace={workspace} /> : null}
 

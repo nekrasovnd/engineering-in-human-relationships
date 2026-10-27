@@ -1,4 +1,10 @@
 import { FACTOR_KEYS, buildSystemIndices } from '../data/questionnaire';
+import {
+  ITERATION_STATUSES,
+  TASK_PRIORITY_KEYS,
+  TASK_STATUS_KEYS,
+  isDateString,
+} from './teamPlanning';
 
 const SYSTEM_INDEX_KEYS = [
   'conflictLoad',
@@ -254,5 +260,55 @@ export function sanitizeTeam(team, teamId = '') {
       team?.analysis && typeof team.analysis === 'object' ? team.analysis : null,
     createdAt: sanitizeOptionalText(team?.createdAt),
     updatedAt: sanitizeOptionalText(team?.updatedAt),
+  };
+}
+
+export function sanitizeTeamIteration(iteration, iterationId = '') {
+  const id = sanitizeRequiredText(iterationId);
+  const title = sanitizeRequiredText(iteration?.title);
+
+  if (!id || !title) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    goal: sanitizeOptionalText(iteration?.goal),
+    startDate: isDateString(iteration?.startDate) ? iteration.startDate : '',
+    deadline: isDateString(iteration?.deadline) ? iteration.deadline : '',
+    status: ITERATION_STATUSES.includes(iteration?.status) ? iteration.status : 'active',
+    createdBy: sanitizeOptionalText(iteration?.createdBy),
+    createdAt: sanitizeOptionalText(iteration?.createdAt),
+    updatedAt: sanitizeOptionalText(iteration?.updatedAt),
+    closedAt: sanitizeOptionalText(iteration?.closedAt),
+  };
+}
+
+export function sanitizeTeamTask(task, taskId = '') {
+  const id = sanitizeRequiredText(taskId);
+  const title = sanitizeRequiredText(task?.title);
+
+  if (!id || !title) {
+    return null;
+  }
+
+  return {
+    id,
+    title,
+    description: sanitizeOptionalText(task?.description),
+    status: TASK_STATUS_KEYS.includes(task?.status) ? task.status : 'todo',
+    priority: TASK_PRIORITY_KEYS.includes(task?.priority) ? task.priority : 'medium',
+    assigneeIds: Array.isArray(task?.assigneeIds)
+      ? Array.from(
+          new Set(task.assigneeIds.map((item) => sanitizeRequiredText(item)).filter(Boolean)),
+        )
+      : [],
+    iterationId: sanitizeOptionalText(task?.iterationId),
+    deadline: isDateString(task?.deadline) ? task.deadline : '',
+    createdBy: sanitizeOptionalText(task?.createdBy),
+    createdAt: sanitizeOptionalText(task?.createdAt),
+    updatedAt: sanitizeOptionalText(task?.updatedAt),
+    completedAt: sanitizeOptionalText(task?.completedAt),
   };
 }

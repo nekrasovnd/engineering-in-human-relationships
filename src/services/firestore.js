@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
@@ -9,6 +10,7 @@ import {
   query,
   runTransaction,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
@@ -35,6 +37,13 @@ import {
   getTeamOwnerId,
   getTeamRole,
 } from '../utils/teamRoles';
+import {
+  ITERATION_STATUSES,
+  TASK_PRIORITY_KEYS,
+  TASK_STATUS_KEYS,
+  getTodayDateString,
+  isDateString,
+} from '../utils/teamPlanning';
 
 const nowIso = () => new Date().toISOString();
 const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -943,10 +952,29 @@ export async function transferTeamOwnership(teamId, actorId, nextOwnerId) {
   });
 }
 
-/** Удаляет команду (только владелец) и выключает её код приглашения. */
+const BATCH_LIMIT = 450;
+
+async function deleteTeamSubcollection(teamId, name) {
+  const snapshot = await getDocs(collection(db, 'teams', teamId, name));
+
+  for (let index = 0; index < snapshot.docs.length; index += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    snapshot.docs
+      .slice(index, index + BATCH_LIMIT)
+      .forEach((item) => batch.delete(item.ref));
+    await batch.commit();
+  }
+}
+
+/** Удаляет команду (только владелец) вместе с задачами и итерациями и выключает её код. */
 export async function deleteTeam(team, actorId) {
   assertCurrentUser(actorId);
   assertTeamPermission(team, actorId, 'deleteTeam');
+
+  // Подколлекции не удаляются вместе с командой — чистим их заранее,
+  // пока правила ещё видят команду и владельца.
+  await deleteTeamSubcollection(team.id, 'tasks');
+  await deleteTeamSubcollection(team.id, 'iterations');
 
   const batch = writeBatch(db);
   batch.delete(doc(db, 'teams', team.id));
@@ -959,6 +987,194 @@ export async function deleteTeam(team, actorId) {
   }
 
   await batch.commit();
+}
+
+// ─── Итерации и задачи ──────────────────────────────────────────────────────
+// Ведут владелец, админы и тимлиды (manageTasks / setDeadlines).
+// Исполнитель задачи может менять только её статус.
+
+const TASK_TITLE_MAX = 200;
+const TASK_DESCRIPTION_MAX = 2000;
+
+function normalizeIterationInput({ title, goal, startDate, deadline }) {
+  const nextIteration = {
+    title: String(title || '').trim().slice(0, TASK_TITLE_MAX),
+    goal: String(goal || '').trim().slice(0, TASK_DESCRIPTION_MAX),
+    startDate: isDateString(startDate) ? startDate : getTodayDateString(),
+    deadline: isDateString(deadline) ? deadline : '',
+  };
+
+  if (!nextIteration.title || !nextIteration.deadline) {
+    throw new Error('invalid-iteration');
+  }
+
+  if (nextIteration.startDate > nextIteration.deadline) {
+    throw new Error('iteration-dates-order');
+  }
+
+  return nextIteration;
+}
+
+export async function createTeamIteration(team, actorId, input) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'setDeadlines');
+
+  const timestamp = nowIso();
+  const iterationRef = doc(collection(db, 'teams', team.id, 'iterations'));
+
+  await setDoc(iterationRef, {
+    ...normalizeIterationInput(input),
+    status: 'active',
+    createdBy: actorId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    closedAt: '',
+  });
+
+  return iterationRef.id;
+}
+
+export async function updateTeamIteration(team, iteration, actorId, input) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'setDeadlines');
+
+  await updateDoc(doc(db, 'teams', team.id, 'iterations', iteration.id), {
+    ...normalizeIterationInput(input),
+    updatedAt: nowIso(),
+  });
+}
+
+/** Закрывает итерацию (работа сдана) или открывает её заново. */
+export async function setTeamIterationStatus(team, iteration, actorId, status) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'setDeadlines');
+
+  if (!ITERATION_STATUSES.includes(status)) {
+    throw new Error('invalid-iteration');
+  }
+
+  const timestamp = nowIso();
+
+  await updateDoc(doc(db, 'teams', team.id, 'iterations', iteration.id), {
+    status,
+    closedAt: status === 'closed' ? timestamp : '',
+    updatedAt: timestamp,
+  });
+}
+
+/** Удаляет итерацию; её задачи остаются в команде без итерации. */
+export async function deleteTeamIteration(team, iteration, actorId, tasks = []) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'setDeadlines');
+
+  const timestamp = nowIso();
+  const batch = writeBatch(db);
+
+  tasks
+    .filter((task) => task.iterationId === iteration.id)
+    .forEach((task) => {
+      batch.update(doc(db, 'teams', team.id, 'tasks', task.id), {
+        iterationId: '',
+        updatedAt: timestamp,
+      });
+    });
+  batch.delete(doc(db, 'teams', team.id, 'iterations', iteration.id));
+
+  await batch.commit();
+}
+
+function normalizeTaskInput(team, input, previousAssigneeIds = []) {
+  // Новых исполнителей берём только из участников; уже назначенных
+  // (даже если они вышли из команды) не трогаем, пока их не снимут.
+  const allowedAssignees = new Set([...team.memberIds, ...previousAssigneeIds]);
+  const nextTask = {
+    title: String(input.title || '').trim().slice(0, TASK_TITLE_MAX),
+    description: String(input.description || '').trim().slice(0, TASK_DESCRIPTION_MAX),
+    priority: TASK_PRIORITY_KEYS.includes(input.priority) ? input.priority : 'medium',
+    assigneeIds: Array.from(new Set(input.assigneeIds || [])).filter((item) =>
+      allowedAssignees.has(item),
+    ),
+    iterationId: String(input.iterationId || ''),
+    deadline: isDateString(input.deadline) ? input.deadline : '',
+  };
+
+  if (!nextTask.title) {
+    throw new Error('invalid-task');
+  }
+
+  return nextTask;
+}
+
+function buildCompletedAt(status, previousCompletedAt, timestamp) {
+  return status === 'done' ? previousCompletedAt || timestamp : '';
+}
+
+export async function createTeamTask(team, actorId, input) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'manageTasks');
+
+  const timestamp = nowIso();
+  const status = TASK_STATUS_KEYS.includes(input.status) ? input.status : 'todo';
+  const taskRef = doc(collection(db, 'teams', team.id, 'tasks'));
+
+  await setDoc(taskRef, {
+    ...normalizeTaskInput(team, input),
+    status,
+    createdBy: actorId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    completedAt: buildCompletedAt(status, '', timestamp),
+  });
+
+  return taskRef.id;
+}
+
+export async function updateTeamTask(team, task, actorId, input) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'manageTasks');
+
+  const timestamp = nowIso();
+  const status = TASK_STATUS_KEYS.includes(input.status) ? input.status : task.status;
+
+  await updateDoc(doc(db, 'teams', team.id, 'tasks', task.id), {
+    ...normalizeTaskInput(team, input, task.assigneeIds),
+    status,
+    updatedAt: timestamp,
+    completedAt: buildCompletedAt(status, task.completedAt, timestamp),
+  });
+}
+
+/** Смена статуса: планирующие роли — любой задачи, участник — только своей. */
+export async function updateTeamTaskStatus(team, task, actorId, status) {
+  assertCurrentUser(actorId);
+
+  if (!TASK_STATUS_KEYS.includes(status)) {
+    throw new Error('invalid-task');
+  }
+
+  const canManage = canTeamMember(team, actorId, 'manageTasks');
+  const isAssignee =
+    task.assigneeIds.includes(actorId) &&
+    canTeamMember(team, actorId, 'updateOwnTasks');
+
+  if (!canManage && !isAssignee) {
+    throw new Error('team-permission-denied');
+  }
+
+  const timestamp = nowIso();
+
+  await updateDoc(doc(db, 'teams', team.id, 'tasks', task.id), {
+    status,
+    updatedAt: timestamp,
+    completedAt: buildCompletedAt(status, task.completedAt, timestamp),
+  });
+}
+
+export async function deleteTeamTask(team, task, actorId) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'manageTasks');
+
+  await deleteDoc(doc(db, 'teams', team.id, 'tasks', task.id));
 }
 
 export async function saveMatchDecision(payload) {

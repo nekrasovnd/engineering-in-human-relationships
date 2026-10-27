@@ -39,6 +39,17 @@
 
 ---
 
+### `teamPlanning.js`
+Задачи и итерации: `TASK_STATUSES`, `TASK_PRIORITIES`, даты `'YYYY-MM-DD'`.
+
+**Экспорты:**
+- `getTaskDeadline(task, iterationsById)` — свой дедлайн задачи или дедлайн итерации
+- `getDeadlineState(deadline, { done })` → `{ tone: 'none'|'done'|'ok'|'soon'|'overdue', label }`
+- `getIterationProgress(iteration, tasks)`, `getCurrentIteration(iterations)`
+- `compareTasks(iterationsById)`, `compareIterations` — сортировки
+
+---
+
 ### `clipboard.js`
 `copyTextToClipboard(text)` → `Promise<boolean>` — копирование с фолбэком.
 
