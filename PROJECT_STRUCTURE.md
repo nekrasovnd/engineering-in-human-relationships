@@ -47,6 +47,7 @@ src/
 │   ├── useTeamPlanning.js       # Вкладки «Задачи» и «Итерации»: фильтры, формы, операции
 │   ├── useTeamFeedbackData.js   # Подписка на пульс-опросы и оценки коллег
 │   ├── useTeamFeedback.js       # Вкладка «Обратная связь»: формы и сводки
+│   ├── useTeamFunctions.js      # Вкладка «Роли»: роли в работе, уровни, подсказки
 │   └── useQuestionnaireForm.js  # Состояние опросника (автосохранение черновика, валидация)
 │
 ├── pages/                    # Страницы приложения (по одной на маршрут)
@@ -56,7 +57,7 @@ src/
 │   ├── DiscoverPage.jsx      # /discover — лента знакомств, взаимные совпадения
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
 │   ├── TeamsPage.jsx         # /teams — создание команд, приглашения, список команд
-│   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, обратная связь, участники, настройки
+│   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, обратная связь, роли, участники, настройки
 │   └── KnowledgeBasePage.jsx # /knowledge — база знаний ТРИЗ с поиском
 │
 ├── components/               # Переиспользуемые UI-компоненты
@@ -86,6 +87,8 @@ src/
 │   ├── RatingScale.jsx       # Шкала 1–5
 │   ├── FeedbackResults.jsx   # Сводки для владельца/админов
 │   ├── FrictionTimelineChart.jsx # График индекса трения по неделям
+│   ├── TeamFunctionsPanel.jsx # Вкладка «Роли»: назначение и подсказки
+│   ├── FunctionalRoleBadge.jsx # Бейдж «Аналитик · Middle»
 │   ├── ComparisonResultCard.jsx # Результат сравнения двух профилей
 │   ├── ProfileInsightCard.jsx   # Психологический разбор профиля (нарратив)
 │   └── InstructionCard.jsx      # Памятка «Быстро и по делу»
@@ -100,6 +103,7 @@ src/
     ├── teamRoles.js          # Роли в команде (owner/admin/lead/member) и матрица прав
     ├── teamPlanning.js       # Статусы задач, дедлайны, прогресс итераций
     ├── teamFeedback.js       # Пульс-опросы, оценка коллег, индекс трения
+    ├── teamFunctions.js      # Роли в работе, квалификация, подсказки по анкете
     ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля

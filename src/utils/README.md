@@ -63,6 +63,24 @@
 
 ---
 
+### `teamFunctions.js`
+Роли в работе (HR/руководитель, исследователь, аналитик, разработчик) и квалификация
+(Junior/Middle/Senior). Не путать с ролями прав из `teamRoles.js`.
+
+Подсказки без нейросети: у роли — веса черт из анкеты (0–10), у руководителя
+ещё и бонус за уровень. Для людей без роли перебором ищется распределение
+с максимальным суммарным соответствием; закрытие пустой роли даёт бонус +2.
+
+**Экспорты:**
+- `FUNCTIONAL_ROLES`, `QUALIFICATIONS` и их ключи
+- `getFunctionFit(profile, role, qualification)` — соответствие роли 0–10
+- `getMemberFunctionFits`, `getFunctionReason` — рейтинг ролей и сильные стороны
+- `suggestFunctionAssignment(profiles, qualifications, coveredRoles)` — подсказка распределения
+- `buildFunctionHints(team, members)` — строки для вкладки «Роли» и предупреждения
+  (нет руководителя, незакрытая роль, в роли только Junior, роль не по сильным сторонам)
+
+---
+
 ### `clipboard.js`
 `copyTextToClipboard(text)` → `Promise<boolean>` — копирование с фолбэком.
 

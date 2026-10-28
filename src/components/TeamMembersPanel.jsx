@@ -2,6 +2,7 @@ import { Crown, UserMinus } from 'lucide-react';
 import { formatEgoStateLabel } from '../utils/egoState';
 import { ASSIGNABLE_TEAM_ROLES, TEAM_ROLES } from '../utils/teamRoles';
 import AvatarBadge from './AvatarBadge';
+import FunctionalRoleBadge from './FunctionalRoleBadge';
 import SectionCard from './SectionCard';
 import TeamRoleBadge from './TeamRoleBadge';
 
@@ -157,6 +158,10 @@ export default function TeamMembersPanel({ workspace }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium text-white">{member.name}</p>
                       <TeamRoleBadge role={role} />
+                      <FunctionalRoleBadge
+                        role={team.functionalRoles[member.userId]}
+                        qualification={team.qualifications[member.userId]}
+                      />
                     </div>
                     <p className="mt-1 text-sm text-slate-400">
                       {formatEgoStateLabel(member.egoState)}

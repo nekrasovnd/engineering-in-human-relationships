@@ -156,6 +156,17 @@ async function main() {
         [byLogin.admin.userId]: 'admin',
         [byLogin.lead.userId]: 'lead',
       },
+      // Админ без роли в работе — чтобы на вкладке «Роли» была подсказка.
+      functionalRoles: {
+        [byLogin.owner.userId]: 'hr',
+        [byLogin.lead.userId]: 'analyst',
+        [byLogin.member.userId]: 'developer',
+      },
+      qualifications: {
+        [byLogin.owner.userId]: 'senior',
+        [byLogin.lead.userId]: 'middle',
+        [byLogin.member.userId]: 'junior',
+      },
       memberIds: teamMembers.map((item) => item.userId),
       memberSnapshots: teamMembers.map(snapshotOf),
       analysis: null,

@@ -37,6 +37,7 @@ import {
   getTeamOwnerId,
   getTeamRole,
 } from '../utils/teamRoles';
+import { FUNCTIONAL_ROLE_KEYS, QUALIFICATION_KEYS } from '../utils/teamFunctions';
 import {
   ITERATION_STATUSES,
   TASK_PRIORITY_KEYS,
@@ -914,12 +915,55 @@ async function removeUserFromTeam(teamId, actorId, targetId) {
       updatedAt: nowIso(),
     };
 
-    if (rawTeam.roles && Object.hasOwn(rawTeam.roles, targetId)) {
-      patch[`roles.${targetId}`] = deleteField();
-    }
+    ['roles', 'functionalRoles', 'qualifications'].forEach((field) => {
+      if (rawTeam[field] && Object.hasOwn(rawTeam[field], targetId)) {
+        patch[`${field}.${targetId}`] = deleteField();
+      }
+    });
 
     transaction.update(teamRef, patch);
   });
+}
+
+/**
+ * Функциональные роли и квалификация (владелец и админы).
+ * changes: [{ userId, functionalRole?, qualification? }]; пустая строка — снять.
+ */
+export async function setTeamMemberFunctions(team, actorId, changes) {
+  assertCurrentUser(actorId);
+
+  if (!canTeamMember(team, actorId, 'assignFunctions')) {
+    throw new Error('team-permission-denied');
+  }
+
+  const patch = {};
+  const fieldValue = (value, allowed) => {
+    if (value === '') {
+      return deleteField();
+    }
+    if (!allowed.includes(value)) {
+      throw new Error('invalid-team-function');
+    }
+    return value;
+  };
+
+  changes.forEach(({ userId, functionalRole, qualification }) => {
+    if (!team.memberIds.includes(userId)) {
+      throw new Error('team-permission-denied');
+    }
+    if (functionalRole !== undefined) {
+      patch[`functionalRoles.${userId}`] = fieldValue(functionalRole, FUNCTIONAL_ROLE_KEYS);
+    }
+    if (qualification !== undefined) {
+      patch[`qualifications.${userId}`] = fieldValue(qualification, QUALIFICATION_KEYS);
+    }
+  });
+
+  if (Object.keys(patch).length === 0) {
+    return;
+  }
+
+  await updateDoc(doc(db, 'teams', team.id), { ...patch, updatedAt: nowIso() });
 }
 
 /** Исключает участника из команды (владелец и админы; владельца исключить нельзя). */

@@ -81,8 +81,13 @@
 #### `setTeamMemberRole(teamId, actorId, targetId, role)`
 Владелец/админ. `role` ∈ `admin | lead | member`. Нельзя менять себя и владельца.
 
+#### `setTeamMemberFunctions(team, actorId, changes)`
+Владелец/админ. Роли в работе и квалификация (`utils/teamFunctions.js`),
+можно сразу нескольким: `[{ userId, functionalRole?, qualification? }]`, `''` — снять.
+
 #### `removeTeamMember(teamId, actorId, targetId)` / `leaveTeam(teamId, userId)`
 Исключение (владелец/админ) или выход. Владелец выйти не может.
+Роль, роль в работе и уровень участника удаляются вместе с ним.
 
 #### `transferTeamOwnership(teamId, actorId, nextOwnerId)`
 Только владелец. Прежний владелец становится админом.
@@ -154,6 +159,8 @@ matchDecisions/{autoId}     — решения (like/pass) между польз
 teams/{teamId}              — команда
   ownerId                   — владелец (у старых команд нет → createdBy)
   roles                     — { uid: 'owner' | 'admin' | 'lead' }, нет ключа → 'member'
+  functionalRoles           — { uid: 'hr' | 'researcher' | 'analyst' | 'developer' }
+  qualifications            — { uid: 'junior' | 'middle' | 'senior' }
   memberIds, memberSnapshots — состав и снапшоты профилей участников
   iterations/{id}           — итерации: title, goal, startDate, deadline, status
   tasks/{id}                — задачи: title, status, priority, assigneeIds,

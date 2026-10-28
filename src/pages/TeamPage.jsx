@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTeamFeedback } from '../hooks/useTeamFeedback';
+import { useTeamFunctions } from '../hooks/useTeamFunctions';
 import { useTeamPlanning } from '../hooks/useTeamPlanning';
 import { useTeamWorkspace } from '../hooks/useTeamWorkspace';
 import CurrentIterationCard from '../components/CurrentIterationCard';
@@ -10,6 +11,7 @@ import SectionCard from '../components/SectionCard';
 import TaskFormDialog from '../components/TaskFormDialog';
 import TeamCard from '../components/TeamCard';
 import TeamFeedbackPanel from '../components/TeamFeedbackPanel';
+import TeamFunctionsPanel from '../components/TeamFunctionsPanel';
 import TeamIterationsPanel from '../components/TeamIterationsPanel';
 import TeamMembersPanel from '../components/TeamMembersPanel';
 import TeamRoleBadge from '../components/TeamRoleBadge';
@@ -21,6 +23,7 @@ const TABS = [
   { key: 'tasks', label: 'Задачи' },
   { key: 'iterations', label: 'Итерации' },
   { key: 'feedback', label: 'Обратная связь' },
+  { key: 'functions', label: 'Роли' },
   { key: 'members', label: 'Участники' },
   { key: 'settings', label: 'Настройки' },
 ];
@@ -36,6 +39,10 @@ export default function TeamPage() {
     onNotice: workspace.showNotice,
   });
   const feedback = useTeamFeedback(team, profile, planning.iterations, {
+    onError: workspace.showError,
+    onNotice: workspace.showNotice,
+  });
+  const functions = useTeamFunctions(team, profile, workspace.members, {
     onError: workspace.showError,
     onNotice: workspace.showNotice,
   });
@@ -169,6 +176,10 @@ export default function TeamPage() {
 
       {activeTab === 'feedback' ? (
         <TeamFeedbackPanel feedback={feedback} teamSize={team.memberIds.length} />
+      ) : null}
+
+      {activeTab === 'functions' ? (
+        <TeamFunctionsPanel functions={functions} members={workspace.members} />
       ) : null}
 
       <TaskFormDialog team={team} planning={planning} />

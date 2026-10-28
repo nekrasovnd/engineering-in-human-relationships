@@ -137,6 +137,14 @@ useTeamPlanning(team, profile, { onError, onNotice })
 useTeamFeedback(team, profile, iterations, { onError, onNotice })
 ```
 
+### `useTeamFunctions.js`
+Вкладка «Роли»: роли в работе, уровни, подсказки по анкете и предупреждения
+(`buildFunctionHints`). Назначают владелец и админы.
+
+```js
+useTeamFunctions(team, profile, members, { onError, onNotice })
+```
+
 ### `useQuestionnaireForm.js`
 Состояние страницы `/questionnaire`:
 - Гидратация из профиля при первом рендере

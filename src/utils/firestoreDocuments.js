@@ -6,6 +6,7 @@ import {
   isDateString,
 } from './teamPlanning';
 import { PEER_CRITERIA_KEYS, PULSE_KEYS, RATING_VALUES } from './teamFeedback';
+import { FUNCTIONAL_ROLE_KEYS, QUALIFICATION_KEYS } from './teamFunctions';
 
 const SYSTEM_INDEX_KEYS = [
   'conflictLoad',
@@ -245,6 +246,12 @@ export function sanitizeTeam(team, teamId = '') {
           : 'member',
     ]),
   );
+  const pickMemberValues = (stored, allowed) =>
+    Object.fromEntries(
+      memberIds
+        .filter((userId) => allowed.includes(stored?.[userId]))
+        .map((userId) => [userId, stored[userId]]),
+    );
 
   return {
     id: sanitizeRequiredText(teamId),
@@ -255,6 +262,8 @@ export function sanitizeTeam(team, teamId = '') {
     createdBy,
     ownerId,
     roles,
+    functionalRoles: pickMemberValues(team?.functionalRoles, FUNCTIONAL_ROLE_KEYS),
+    qualifications: pickMemberValues(team?.qualifications, QUALIFICATION_KEYS),
     memberIds,
     memberSnapshots,
     analysis:

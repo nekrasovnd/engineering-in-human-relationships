@@ -178,6 +178,23 @@ service cloud.firestore {
         && teamRolesOf(data).values().removeAll(['admin', 'lead']).size() <= 1;
     }
 
+    // Функциональные роли и квалификация (src/utils/teamFunctions.js).
+    function teamMemberMapOf(data, field) {
+      return data.get(field, {});
+    }
+
+    function teamMemberMapDiff(field) {
+      return teamMemberMapOf(request.resource.data, field)
+        .diff(teamMemberMapOf(resource.data, field));
+    }
+
+    function validTeamMemberMapChange(field, allowedValues) {
+      let changes = teamMemberMapDiff(field);
+      return teamMemberMapOf(request.resource.data, field) is map
+        && changes.addedKeys().union(changes.changedKeys()).hasOnly(resource.data.memberIds)
+        && teamMemberMapOf(request.resource.data, field).values().hasOnly(allowedValues);
+    }
+
     function pendingInvite(teamId) {
       return get(
         /databases/$(database)/documents/teamInvites/$(teamId + "_" + request.auth.uid)
@@ -423,12 +440,29 @@ service cloud.firestore {
         && validTeamRolesMap(request.resource.data);
     }
 
+    // Владелец/админ распределяет роли в работе и уровни (сразу нескольким).
+    function canSetTeamFunctions() {
+      return hasTeamRole(resource.data, ['owner', 'admin'])
+        && request.resource.data.updatedAt is string
+        && teamChangedKeysOnly(['functionalRoles', 'qualifications', 'updatedAt'])
+        && validTeamMemberMapChange('functionalRoles', ['hr', 'researcher', 'analyst', 'developer'])
+        && validTeamMemberMapChange('qualifications', ['junior', 'middle', 'senior']);
+    }
+
     // Исключение участника админом/владельцем или самостоятельный выход.
     // Владельца удалить нельзя — сначала передача владения.
     function canRemoveTeamMember() {
       let removed = resource.data.memberIds.toSet()
         .difference(request.resource.data.memberIds.toSet());
-      return teamChangedKeysOnly(['memberIds', 'memberSnapshots', 'analysis', 'roles', 'updatedAt'])
+      return teamChangedKeysOnly([
+          'memberIds',
+          'memberSnapshots',
+          'analysis',
+          'roles',
+          'functionalRoles',
+          'qualifications',
+          'updatedAt',
+        ])
         && request.resource.data.updatedAt is string
         && request.resource.data.memberIds is list
         && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
@@ -439,6 +473,8 @@ service cloud.firestore {
         && request.resource.data.memberSnapshots.size() == resource.data.memberSnapshots.size() - 1
         && teamRolesDiff().affectedKeys().difference(removed).size() == 0
         && teamRolesOf(request.resource.data).keys().toSet().intersection(removed).size() == 0
+        && teamMemberMapDiff('functionalRoles').affectedKeys().difference(removed).size() == 0
+        && teamMemberMapDiff('qualifications').affectedKeys().difference(removed).size() == 0
         && (
           removed.hasOnly([request.auth.uid])
           || (
@@ -734,6 +770,7 @@ service cloud.firestore {
           || canAcceptInvite(teamId)
           || canEditTeamInfo()
           || canSetTeamMemberRole()
+          || canSetTeamFunctions()
           || canRemoveTeamMember()
           || canTransferTeamOwnership()
         );
