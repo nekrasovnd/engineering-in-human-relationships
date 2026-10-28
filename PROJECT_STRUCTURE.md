@@ -45,6 +45,8 @@ src/
 │   ├── useTeamWorkspace.js      # Страница одной команды: участники, роли, настройки
 │   ├── useTeamPlanningData.js   # Подписка на итерации и задачи команды
 │   ├── useTeamPlanning.js       # Вкладки «Задачи» и «Итерации»: фильтры, формы, операции
+│   ├── useTeamFeedbackData.js   # Подписка на пульс-опросы и оценки коллег
+│   ├── useTeamFeedback.js       # Вкладка «Обратная связь»: формы и сводки
 │   └── useQuestionnaireForm.js  # Состояние опросника (автосохранение черновика, валидация)
 │
 ├── pages/                    # Страницы приложения (по одной на маршрут)
@@ -54,7 +56,7 @@ src/
 │   ├── DiscoverPage.jsx      # /discover — лента знакомств, взаимные совпадения
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
 │   ├── TeamsPage.jsx         # /teams — создание команд, приглашения, список команд
-│   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, участники, настройки
+│   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, обратная связь, участники, настройки
 │   └── KnowledgeBasePage.jsx # /knowledge — база знаний ТРИЗ с поиском
 │
 ├── components/               # Переиспользуемые UI-компоненты
@@ -78,6 +80,12 @@ src/
 │   ├── IterationProgress.jsx # Даты, дедлайн и прогресс итерации
 │   ├── CurrentIterationCard.jsx # Текущая итерация на обзоре команды
 │   ├── DeadlineBadge.jsx     # Бейдж дедлайна (срочно / просрочено)
+│   ├── TeamFeedbackPanel.jsx # Вкладка «Обратная связь»
+│   ├── PulseSurveyForm.jsx   # Опрос недели о трении
+│   ├── PeerReviewForm.jsx    # Оценка коллег после итерации
+│   ├── RatingScale.jsx       # Шкала 1–5
+│   ├── FeedbackResults.jsx   # Сводки для владельца/админов
+│   ├── FrictionTimelineChart.jsx # График индекса трения по неделям
 │   ├── ComparisonResultCard.jsx # Результат сравнения двух профилей
 │   ├── ProfileInsightCard.jsx   # Психологический разбор профиля (нарратив)
 │   └── InstructionCard.jsx      # Памятка «Быстро и по делу»
@@ -91,6 +99,7 @@ src/
     ├── teamAnalysis.js       # buildTeamSummary(), findMostConflictPair(), getRecommendedRoles()
     ├── teamRoles.js          # Роли в команде (owner/admin/lead/member) и матрица прав
     ├── teamPlanning.js       # Статусы задач, дедлайны, прогресс итераций
+    ├── teamFeedback.js       # Пульс-опросы, оценка коллег, индекс трения
     ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля

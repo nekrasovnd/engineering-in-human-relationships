@@ -109,6 +109,19 @@
 
 #### `deleteTeamTask(team, task, actorId)`
 
+### Обратная связь (`utils/teamFeedback.js`)
+
+Отвечает любой участник, один раз (повторная запись запрещена правилами).
+Ответы читают автор и владелец/админы.
+
+#### `submitPulseSurvey(team, actorId, { answers, frictionWith, comment })`
+Пульс недели: 5 вопросов 1–5, «с кем сложно» (участники), комментарий.
+Документ `pulseSurveys/{weekKey}_{uid}`, неделя — ISO (`2026-W44`).
+
+#### `submitPeerReview(team, iteration, actorId, { ratings, comments })`
+Оценка коллег по закрытой итерации: каждому участнику 1–5 по 4 критериям.
+Документ `peerReviews/{iterationId}_{uid}`.
+
 ---
 
 ### Синхронизация снапшотов (вызывается из AuthContext)
@@ -145,6 +158,8 @@ teams/{teamId}              — команда
   iterations/{id}           — итерации: title, goal, startDate, deadline, status
   tasks/{id}                — задачи: title, status, priority, assigneeIds,
                               iterationId, deadline ('YYYY-MM-DD'), completedAt
+  pulseSurveys/{week_uid}   — пульс недели: answers, frictionWith, comment
+  peerReviews/{iter_uid}    — оценка коллег: ratings { uid: { критерий: 1–5 } }
 teamJoinCodes/{code}        — код вступления в команду
 teamInvites/{inviteId}      — приглашение в команду
 ```

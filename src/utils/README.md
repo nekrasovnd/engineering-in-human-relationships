@@ -50,6 +50,19 @@
 
 ---
 
+### `teamFeedback.js`
+Обратная связь как контур управления из ТАУ: опросы измеряют «уровень сигнала» — трение.
+
+**Экспорты:**
+- `PULSE_QUESTIONS`, `PEER_CRITERIA`, `FRICTION_ALERT_THRESHOLD` (6 из 10)
+- `getWeekKey(date)` — ISO-неделя `'2026-W44'`
+- `getPulseFrictionIndex(answers)` — индекс трения 0–10
+- `buildPulseTimeline`, `buildFrictionMentions` — сводки пульса
+- `buildPeerReviewSummary`, `buildForecastVsFact` — оценки коллег и «прогноз против факта»
+- `getPendingPeerReviewIterations` — закрытые за 14 дней итерации без моей оценки
+
+---
+
 ### `clipboard.js`
 `copyTextToClipboard(text)` → `Promise<boolean>` — копирование с фолбэком.
 

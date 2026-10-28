@@ -5,6 +5,7 @@ import {
   TASK_STATUS_KEYS,
   isDateString,
 } from './teamPlanning';
+import { PEER_CRITERIA_KEYS, PULSE_KEYS, RATING_VALUES } from './teamFeedback';
 
 const SYSTEM_INDEX_KEYS = [
   'conflictLoad',
@@ -310,5 +311,72 @@ export function sanitizeTeamTask(task, taskId = '') {
     createdAt: sanitizeOptionalText(task?.createdAt),
     updatedAt: sanitizeOptionalText(task?.updatedAt),
     completedAt: sanitizeOptionalText(task?.completedAt),
+  };
+}
+
+function sanitizeRating(value) {
+  const numericValue = Number(value);
+  return RATING_VALUES.includes(numericValue) ? numericValue : null;
+}
+
+export function sanitizePulseSurvey(pulse, pulseId = '') {
+  const userId = sanitizeRequiredText(pulse?.userId);
+  const weekKey = sanitizeRequiredText(pulse?.weekKey);
+  const answers = Object.fromEntries(
+    PULSE_KEYS.map((key) => [key, sanitizeRating(pulse?.answers?.[key])]),
+  );
+
+  if (!userId || !weekKey || Object.values(answers).some((value) => value === null)) {
+    return null;
+  }
+
+  return {
+    id: sanitizeRequiredText(pulseId),
+    userId,
+    weekKey,
+    answers,
+    frictionWith: Array.isArray(pulse?.frictionWith)
+      ? pulse.frictionWith.map((item) => sanitizeRequiredText(item)).filter(Boolean)
+      : [],
+    comment: sanitizeOptionalText(pulse?.comment),
+    createdAt: sanitizeOptionalText(pulse?.createdAt),
+  };
+}
+
+export function sanitizePeerReview(review, reviewId = '') {
+  const reviewerId = sanitizeRequiredText(review?.reviewerId);
+  const iterationId = sanitizeRequiredText(review?.iterationId);
+
+  if (!reviewerId || !iterationId || !review?.ratings || typeof review.ratings !== 'object') {
+    return null;
+  }
+
+  const ratings = Object.fromEntries(
+    Object.entries(review.ratings)
+      .filter(([userId]) => userId && userId !== reviewerId)
+      .map(([userId, rating]) => [
+        userId,
+        Object.fromEntries(
+          PEER_CRITERIA_KEYS.map((key) => [key, sanitizeRating(rating?.[key])]),
+        ),
+      ])
+      .filter(([, rating]) => Object.values(rating).every((value) => value !== null)),
+  );
+  const comments =
+    review?.comments && typeof review.comments === 'object'
+      ? Object.fromEntries(
+          Object.entries(review.comments)
+            .map(([userId, text]) => [userId, sanitizeOptionalText(text)])
+            .filter(([, text]) => text),
+        )
+      : {};
+
+  return {
+    id: sanitizeRequiredText(reviewId),
+    reviewerId,
+    iterationId,
+    ratings,
+    comments,
+    createdAt: sanitizeOptionalText(review?.createdAt),
   };
 }

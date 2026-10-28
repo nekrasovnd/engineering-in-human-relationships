@@ -125,6 +125,18 @@ useTeamWorkspace(teamId, profile)
 useTeamPlanning(team, profile, { onError, onNotice })
 ```
 
+### `useTeamFeedbackData.js`
+Подписка на `pulseSurveys` и `peerReviews`: владелец/админы — все ответы,
+остальные — только свои (фильтр по автору обязателен для правил).
+
+### `useTeamFeedback.js`
+Вкладка «Обратная связь»: что нужно пройти (`pendingCount` для бейджа и баннера),
+формы пульса и оценки коллег, сводки для владельца/админов.
+
+```js
+useTeamFeedback(team, profile, iterations, { onError, onNotice })
+```
+
 ### `useQuestionnaireForm.js`
 Состояние страницы `/questionnaire`:
 - Гидратация из профиля при первом рендере

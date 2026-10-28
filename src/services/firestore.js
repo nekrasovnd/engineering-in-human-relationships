@@ -44,6 +44,12 @@ import {
   getTodayDateString,
   isDateString,
 } from '../utils/teamPlanning';
+import {
+  PEER_CRITERIA_KEYS,
+  PULSE_KEYS,
+  RATING_VALUES,
+  getWeekKey,
+} from '../utils/teamFeedback';
 
 const nowIso = () => new Date().toISOString();
 const TEAM_JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -975,6 +981,8 @@ export async function deleteTeam(team, actorId) {
   // пока правила ещё видят команду и владельца.
   await deleteTeamSubcollection(team.id, 'tasks');
   await deleteTeamSubcollection(team.id, 'iterations');
+  await deleteTeamSubcollection(team.id, 'pulseSurveys');
+  await deleteTeamSubcollection(team.id, 'peerReviews');
 
   const batch = writeBatch(db);
   batch.delete(doc(db, 'teams', team.id));
@@ -1175,6 +1183,95 @@ export async function deleteTeamTask(team, task, actorId) {
   assertTeamPermission(team, actorId, 'manageTasks');
 
   await deleteDoc(doc(db, 'teams', team.id, 'tasks', task.id));
+}
+
+// ─── Обратная связь: пульс недели и оценка коллег ─────────────────────────
+// Ответ сохраняется один раз (id документа фиксирует неделю/итерацию и автора).
+// Читают ответы сам автор и владелец/админы (для сводок).
+
+const FEEDBACK_COMMENT_MAX = 1000;
+
+function normalizeRating(value) {
+  const numericValue = Number(value);
+  return RATING_VALUES.includes(numericValue) ? numericValue : null;
+}
+
+export async function submitPulseSurvey(team, actorId, { answers, frictionWith = [], comment = '' }) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'giveFeedback');
+
+  const normalizedAnswers = Object.fromEntries(
+    PULSE_KEYS.map((key) => [key, normalizeRating(answers?.[key])]),
+  );
+
+  if (Object.values(normalizedAnswers).some((value) => value === null)) {
+    throw new Error('incomplete-survey');
+  }
+
+  const weekKey = getWeekKey();
+
+  await setDoc(doc(db, 'teams', team.id, 'pulseSurveys', `${weekKey}_${actorId}`), {
+    userId: actorId,
+    weekKey,
+    answers: normalizedAnswers,
+    frictionWith: Array.from(new Set(frictionWith)).filter(
+      (userId) => userId !== actorId && team.memberIds.includes(userId),
+    ),
+    comment: String(comment || '').trim().slice(0, FEEDBACK_COMMENT_MAX),
+    createdAt: nowIso(),
+  });
+}
+
+/**
+ * Оценка коллег по закрытой итерации: каждому участнику (кроме себя)
+ * 1–5 по критериям PEER_CRITERIA и необязательный комментарий.
+ */
+export async function submitPeerReview(team, iteration, actorId, { ratings, comments = {} }) {
+  assertCurrentUser(actorId);
+  assertTeamPermission(team, actorId, 'giveFeedback');
+
+  if (iteration.status !== 'closed') {
+    throw new Error('iteration-not-closed');
+  }
+
+  const colleagues = team.memberIds.filter((userId) => userId !== actorId);
+  const normalizedRatings = {};
+
+  colleagues.forEach((userId) => {
+    const rating = Object.fromEntries(
+      PEER_CRITERIA_KEYS.map((key) => [key, normalizeRating(ratings?.[userId]?.[key])]),
+    );
+
+    if (Object.values(rating).some((value) => value === null)) {
+      throw new Error('incomplete-survey');
+    }
+
+    normalizedRatings[userId] = rating;
+  });
+
+  if (colleagues.length === 0) {
+    throw new Error('incomplete-survey');
+  }
+
+  const normalizedComments = Object.fromEntries(
+    colleagues
+      .map((userId) => [
+        userId,
+        String(comments?.[userId] || '').trim().slice(0, FEEDBACK_COMMENT_MAX),
+      ])
+      .filter(([, text]) => text),
+  );
+
+  await setDoc(
+    doc(db, 'teams', team.id, 'peerReviews', `${iteration.id}_${actorId}`),
+    {
+      reviewerId: actorId,
+      iterationId: iteration.id,
+      ratings: normalizedRatings,
+      comments: normalizedComments,
+      createdAt: nowIso(),
+    },
+  );
 }
 
 export async function saveMatchDecision(payload) {

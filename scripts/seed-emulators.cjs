@@ -35,6 +35,16 @@ function daysFromToday(days) {
   ].join('-');
 }
 
+// Копия getWeekKey из src/utils/teamFeedback.js (Node не резолвит импорты Vite без расширений).
+function getWeekKey(date) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((target - yearStart) / 86400000 + 1) / 7);
+  return `${target.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
 async function createAuthUser(email) {
   const response = await fetch(
     `${AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
@@ -198,6 +208,53 @@ async function main() {
         createdAt: NOW,
         updatedAt: NOW,
         completedAt: status === 'done' ? NOW : '',
+      });
+    }
+
+    // Пульс за три прошлые недели: трение растёт, Глеб «сложный» для Веры.
+    const weekly = [
+      { offset: -21, base: [2, 3, 4, 4, 4] },
+      { offset: -14, base: [3, 4, 3, 3, 3] },
+      { offset: -7, base: [4, 5, 2, 2, 2] },
+    ];
+
+    for (const { offset, base } of weekly) {
+      const weekDate = new Date();
+      weekDate.setDate(weekDate.getDate() + offset);
+      const weekKey = getWeekKey(weekDate);
+
+      for (const member of teamMembers) {
+        const [tension, workload, clarity, support, mood] = base;
+        await setDoc(doc(db, 'teams', 'demo-team', 'pulseSurveys', `${weekKey}_${member.userId}`), {
+          userId: member.userId,
+          weekKey,
+          answers: { tension, workload, clarity, support, mood },
+          frictionWith: member.login === 'lead' ? [byLogin.member.userId] : [],
+          comment: '',
+          createdAt: NOW,
+        });
+      }
+    }
+
+    // Оценки по закрытой итерации 1 оставили админ и тимлид; остальным — предложит сайт.
+    for (const reviewerLogin of ['admin', 'lead']) {
+      const reviewer = byLogin[reviewerLogin];
+      const ratings = Object.fromEntries(
+        teamMembers
+          .filter((member) => member.userId !== reviewer.userId)
+          .map((member) => [
+            member.userId,
+            member.login === 'member'
+              ? { contribution: 3, quality: 2, communication: 2, reliability: 2 }
+              : { contribution: 5, quality: 4, communication: 4, reliability: 5 },
+          ]),
+      );
+      await setDoc(doc(db, 'teams', 'demo-team', 'peerReviews', `iter-1_${reviewer.userId}`), {
+        reviewerId: reviewer.userId,
+        iterationId: 'iter-1',
+        ratings,
+        comments: {},
+        createdAt: NOW,
       });
     }
   });

@@ -2,12 +2,14 @@ import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTeamFeedback } from '../hooks/useTeamFeedback';
 import { useTeamPlanning } from '../hooks/useTeamPlanning';
 import { useTeamWorkspace } from '../hooks/useTeamWorkspace';
 import CurrentIterationCard from '../components/CurrentIterationCard';
 import SectionCard from '../components/SectionCard';
 import TaskFormDialog from '../components/TaskFormDialog';
 import TeamCard from '../components/TeamCard';
+import TeamFeedbackPanel from '../components/TeamFeedbackPanel';
 import TeamIterationsPanel from '../components/TeamIterationsPanel';
 import TeamMembersPanel from '../components/TeamMembersPanel';
 import TeamRoleBadge from '../components/TeamRoleBadge';
@@ -18,6 +20,7 @@ const TABS = [
   { key: 'overview', label: 'Обзор' },
   { key: 'tasks', label: 'Задачи' },
   { key: 'iterations', label: 'Итерации' },
+  { key: 'feedback', label: 'Обратная связь' },
   { key: 'members', label: 'Участники' },
   { key: 'settings', label: 'Настройки' },
 ];
@@ -29,6 +32,10 @@ export default function TeamPage() {
   const workspace = useTeamWorkspace(teamId, profile);
   const { loading, team, myRole, error, notice } = workspace;
   const planning = useTeamPlanning(team, profile, {
+    onError: workspace.showError,
+    onNotice: workspace.showNotice,
+  });
+  const feedback = useTeamFeedback(team, profile, planning.iterations, {
     onError: workspace.showError,
     onNotice: workspace.showNotice,
   });
@@ -95,6 +102,11 @@ export default function TeamPage() {
               }`}
             >
               {tab.label}
+              {tab.key === 'feedback' && feedback.pendingCount > 0 ? (
+                <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-slate-950">
+                  {feedback.pendingCount}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -118,6 +130,23 @@ export default function TeamPage() {
 
       {activeTab === 'overview' ? (
         <>
+          {feedback.pendingCount > 0 ? (
+            <div className="flex flex-col gap-3 rounded-[28px] border border-amber-500/30 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-6 text-amber-50">
+                {feedback.pendingReviewIterations.length > 0
+                  ? 'Итерация закрыта — оцените коллег. '
+                  : ''}
+                {feedback.pulseDue ? 'Пройдите короткий опрос недели о трении в команде.' : ''}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('feedback')}
+                className="shrink-0 rounded-2xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-400"
+              >
+                Пройти опросы
+              </button>
+            </div>
+          ) : null}
           <CurrentIterationCard
             planning={planning}
             onOpenTasks={openMyTasks}
@@ -136,6 +165,10 @@ export default function TeamPage() {
 
       {activeTab === 'iterations' ? (
         <TeamIterationsPanel planning={planning} onShowTasks={showIterationTasks} />
+      ) : null}
+
+      {activeTab === 'feedback' ? (
+        <TeamFeedbackPanel feedback={feedback} teamSize={team.memberIds.length} />
       ) : null}
 
       <TaskFormDialog team={team} planning={planning} />

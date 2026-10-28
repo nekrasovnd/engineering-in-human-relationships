@@ -52,6 +52,8 @@ export const TEAM_PERMISSIONS = {
   setDeadlines: ['owner', 'admin', 'lead'],
   manageTasks: ['owner', 'admin', 'lead'],
   updateOwnTasks: ['owner', 'admin', 'lead', 'member'],
+  giveFeedback: ['owner', 'admin', 'lead', 'member'],
+  viewFeedback: ['owner', 'admin'],
   transferOwnership: ['owner'],
   deleteTeam: ['owner'],
   leave: ['admin', 'lead', 'member'],
@@ -64,6 +66,8 @@ export const TEAM_PERMISSION_LABELS = [
   { action: 'setDeadlines', label: 'Вести итерации и дедлайны' },
   { action: 'manageTasks', label: 'Создавать и назначать задачи' },
   { action: 'updateOwnTasks', label: 'Менять статус своих задач' },
+  { action: 'giveFeedback', label: 'Проходить опросы и оценивать коллег' },
+  { action: 'viewFeedback', label: 'Видеть результаты опросов и оценок' },
   { action: 'transferOwnership', label: 'Передавать владение' },
   { action: 'deleteTeam', label: 'Удалить команду' },
 ];
