@@ -1,17 +1,25 @@
+import { useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTeamSelection } from '../hooks/useTeamSelection';
 import { GOAL_OPTIONS, useTeamsWorkspace } from '../hooks/useTeamsWorkspace';
 import { formatEgoStateLabel } from '../utils/egoState';
 import { getTeamRole, TEAM_ROLES } from '../utils/teamRoles';
+import FriendsPanel from '../components/FriendsPanel';
 import SectionCard from '../components/SectionCard';
 import TeamListItem from '../components/TeamListItem';
+import TeamSelectionPanel from '../components/TeamSelectionPanel';
+
+const SOURCE_LABELS = { friend: 'Друг', match: 'Совпадение' };
 
 export default function TeamsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const formRef = useRef(null);
   const {
-    mutualMatches,
+    friends,
+    inviteCandidates,
     matchesLoading,
     invitesLoading,
     teamsLoading,
@@ -28,12 +36,19 @@ export default function TeamsPage() {
     teams,
     updateFormField,
     toggleInvitee,
+    setInvitees,
     updateCodeInviteValue,
     createTeam,
     acceptInvite,
     declineInvite,
     requestInviteByCode,
   } = useTeamsWorkspace(profile, location.state);
+  const selection = useTeamSelection(profile, inviteCandidates);
+
+  const applyGroup = (group) => {
+    setInvitees(group.members.map((member) => member.userId));
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleCreateTeam = async (event) => {
     event.preventDefault();
@@ -58,7 +73,8 @@ export default function TeamsPage() {
         subtitle="Собирайте людей через взаимный интерес и приглашения, а потом уже смотрите, как команда держит темп, роли и нагрузку."
       >
         <form
-          className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]"
+          ref={formRef}
+          className="grid scroll-mt-6 gap-6 xl:grid-cols-[0.95fr_1.05fr]"
           onSubmit={handleCreateTeam}
         >
           <div className="space-y-4 rounded-[28px] border border-slate-800 bg-slate-950/40 p-5">
@@ -127,20 +143,20 @@ export default function TeamsPage() {
               Кого можно пригласить
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Здесь показываются только взаимные совпадения из знакомств. Так приглашение в команду начинается не со случайного списка людей, а с уже подтверждённого интереса.
+              Друзья, добавленные по коду, и взаимные совпадения из знакомств. Так приглашение в команду начинается не со случайного списка людей, а с уже подтверждённого интереса.
             </p>
 
             {matchesLoading ? (
               <p className="mt-4 text-sm text-slate-400">
-                Собираем взаимные совпадения...
+                Собираем друзей и совпадения...
               </p>
-            ) : mutualMatches.length === 0 ? (
+            ) : inviteCandidates.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-sm leading-6 text-slate-400">
-                Пока нет взаимных совпадений. Сначала они появятся в знакомствах, а уже потом здесь можно будет отправить приглашение в команду.
+                Пока некого пригласить. Добавьте друзей по коду ниже или найдите взаимные совпадения в знакомствах.
               </div>
             ) : (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {mutualMatches.map((candidate) => {
+                {inviteCandidates.map((candidate) => {
                   const checked = form.inviteeIds.includes(candidate.userId);
                   return (
                     <label
@@ -161,6 +177,8 @@ export default function TeamsPage() {
                         <div>
                           <p className="font-medium text-white">{candidate.name}</p>
                           <p className="text-sm text-slate-400">
+                            {candidate.sources.map((source) => SOURCE_LABELS[source]).join(' · ')}
+                            {' · '}
                             {formatEgoStateLabel(candidate.egoState)}
                           </p>
                         </div>
@@ -222,6 +240,15 @@ export default function TeamsPage() {
           </div>
         </form>
       </SectionCard>
+
+      <TeamSelectionPanel
+        selection={selection}
+        currentUserId={profile.userId}
+        loading={matchesLoading}
+        onUseGroup={applyGroup}
+      />
+
+      <FriendsPanel friends={friends} />
 
       <SectionCard
         title="Приглашения"

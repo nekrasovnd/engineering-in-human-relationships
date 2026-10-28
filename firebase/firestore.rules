@@ -736,6 +736,103 @@ service cloud.firestore {
           .hasOnly(['active', 'teamName', 'teamDescription', 'teamGoal', 'updatedAt']);
     }
 
+    // ─── Друзья по коду (friendCodes, friendships) ──────────────────────────
+    // Снапшот профиля, который друг видит для подбора команды.
+    function validFriendSnapshot(snapshot, uid) {
+      return snapshot is map
+        && snapshot.keys().hasOnly([
+          'userId',
+          'name',
+          'avatarInitials',
+          'avatarUrl',
+          'egoState',
+          'factorScores',
+          'factorReliability',
+          'systemIndices',
+          'profileIntegrity',
+        ])
+        && snapshot.userId == uid
+        && snapshot.name is string
+        && snapshot.name.size() > 0
+        && snapshot.avatarInitials is string
+        && snapshot.avatarUrl is string
+        && snapshot.egoState is string
+        && validFactorScores(snapshot.factorScores)
+        && validFactorReliability(snapshot.factorReliability)
+        && validSystemIndices(snapshot.systemIndices)
+        && numberInRange(snapshot.profileIntegrity, 0, 10);
+    }
+
+    function validFriendCodeCreate(code) {
+      return request.resource.data.keys().hasOnly(['code', 'userId', 'createdAt'])
+        && request.resource.data.code == code
+        && code.size() >= 6
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt is string;
+    }
+
+    // Заявку создаёт тот, кто знает код адресата; id — пара uid по алфавиту.
+    function validFriendRequestCreate(pairId) {
+      let data = request.resource.data;
+      let codeDoc = get(/databases/$(database)/documents/friendCodes/$(data.code));
+      return data.keys().hasOnly([
+          'userIds',
+          'requesterId',
+          'addresseeId',
+          'status',
+          'code',
+          'snapshots',
+          'createdAt',
+          'updatedAt',
+          'acceptedAt',
+        ])
+        && data.requesterId == request.auth.uid
+        && data.addresseeId is string
+        && data.addresseeId != request.auth.uid
+        && data.status == 'pending'
+        && data.userIds is list
+        && data.userIds.size() == 2
+        && data.userIds[0] < data.userIds[1]
+        && data.userIds.hasAll([data.requesterId, data.addresseeId])
+        && pairId == data.userIds[0] + '_' + data.userIds[1]
+        && data.code is string
+        && codeDoc != null
+        && codeDoc.data.userId == data.addresseeId
+        && data.snapshots is map
+        && data.snapshots.keys().hasOnly([request.auth.uid])
+        && validFriendSnapshot(data.snapshots[request.auth.uid], request.auth.uid)
+        && data.createdAt is string
+        && data.updatedAt is string
+        && data.acceptedAt == '';
+    }
+
+    function friendSnapshotsChangedOnlyMine() {
+      let snapshots = request.resource.data.snapshots;
+      return snapshots is map
+        && snapshots.diff(resource.data.snapshots).affectedKeys().hasOnly([request.auth.uid])
+        && validFriendSnapshot(snapshots[request.auth.uid], request.auth.uid);
+    }
+
+    function canAcceptFriendRequest() {
+      return resource.data.addresseeId == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.acceptedAt is string
+        && request.resource.data.updatedAt is string
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'snapshots', 'acceptedAt', 'updatedAt'])
+        && friendSnapshotsChangedOnlyMine();
+    }
+
+    function canRefreshFriendSnapshot() {
+      return request.auth.uid in resource.data.userIds
+        && resource.data.status == 'accepted'
+        && request.resource.data.updatedAt is string
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['snapshots', 'updatedAt'])
+        && friendSnapshotsChangedOnlyMine();
+    }
+
     match /profiles/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
@@ -885,6 +982,23 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && canUpdateTeamJoinCode();
       allow delete: if false;
+    }
+
+    match /friendCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && validFriendCodeCreate(code);
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /friendships/{pairId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.userIds;
+      allow create: if isSignedIn() && validFriendRequestCreate(pairId);
+      allow update: if isSignedIn()
+        && (canAcceptFriendRequest() || canRefreshFriendSnapshot());
+      // Отклонить, отменить заявку или удалить из друзей может любой из двоих.
+      allow delete: if isSignedIn() && request.auth.uid in resource.data.userIds;
     }
 
     match /matchActions/{actionId} {

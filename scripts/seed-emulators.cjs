@@ -23,6 +23,11 @@ const USERS = [
   { login: 'lead', name: 'Вера Тимлид', bias: [3, 4, 3, 4, 4, 3, 4, 4] },
   { login: 'member', name: 'Глеб Участник', bias: [2, 2, 2, 3, 5, 2, 5, 5] },
   { login: 'guest', name: 'Дина Кандидат', bias: [4, 5, 3, 2, 4, 4, 3, 4] },
+  // Друзья владельца — кандидаты для «Подбора команды».
+  { login: 'evgeny', name: 'Евгений Аналитик', bias: [2, 2, 3, 5, 3, 4, 2, 4] },
+  { login: 'zhanna', name: 'Жанна Исследователь', bias: [3, 4, 3, 2, 5, 3, 3, 4] },
+  { login: 'zoya', name: 'Зоя Разработчик', bias: [2, 2, 3, 4, 3, 5, 2, 3] },
+  { login: 'ilya', name: 'Илья Спорщик', bias: [4, 4, 5, 2, 1, 3, 4, 1] },
 ];
 
 function daysFromToday(days) {
@@ -141,6 +146,42 @@ async function main() {
         conflictRisk: 'Низкий',
         createdAt: NOW,
         updatedAt: NOW,
+      });
+    }
+
+    // Код друга владельца, его друзья и входящая заявка от Дины.
+    await setDoc(doc(db, 'friendCodes', 'ANNA2026'), {
+      code: 'ANNA2026',
+      userId: byLogin.owner.userId,
+      createdAt: NOW,
+    });
+
+    const friendPairs = [
+      ['evgeny', 'accepted'],
+      ['zhanna', 'accepted'],
+      ['zoya', 'accepted'],
+      ['ilya', 'accepted'],
+      ['admin', 'accepted'],
+      ['guest', 'pending'],
+    ];
+
+    for (const [login, status] of friendPairs) {
+      const friend = byLogin[login];
+      const owner = byLogin.owner;
+      const userIds = [owner.userId, friend.userId].sort();
+      await setDoc(doc(db, 'friendships', userIds.join('_')), {
+        userIds,
+        requesterId: friend.userId,
+        addresseeId: owner.userId,
+        status,
+        code: 'ANNA2026',
+        snapshots:
+          status === 'accepted'
+            ? { [owner.userId]: snapshotOf(owner), [friend.userId]: snapshotOf(friend) }
+            : { [friend.userId]: snapshotOf(friend) },
+        createdAt: NOW,
+        updatedAt: NOW,
+        acceptedAt: status === 'accepted' ? NOW : '',
       });
     }
 

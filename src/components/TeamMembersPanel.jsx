@@ -68,13 +68,13 @@ function InviteMatchesBlock({ workspace }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-        Пригласить из взаимных совпадений
+        Пригласить друзей и совпадения
       </p>
       {matchesLoading ? (
-        <p className="mt-3 text-sm text-slate-400">Собираем совпадения...</p>
+        <p className="mt-3 text-sm text-slate-400">Собираем друзей и совпадения...</p>
       ) : invitableMatches.length === 0 ? (
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          Некого пригласить: все взаимные совпадения уже в команде или их пока нет.
+          Некого пригласить: все друзья и совпадения уже в команде или их пока нет.
         </p>
       ) : (
         <>
@@ -223,7 +223,7 @@ export default function TeamMembersPanel({ workspace }) {
       {can.invite ? (
         <SectionCard
           title="Пригласить в команду"
-          subtitle="Отправьте код напрямую или пригласите людей из взаимных совпадений."
+          subtitle="Отправьте код напрямую или пригласите друзей и взаимные совпадения."
         >
           <div className="grid gap-4 xl:grid-cols-2">
             <JoinCodeBlock workspace={workspace} />

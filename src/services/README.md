@@ -114,6 +114,23 @@
 
 #### `deleteTeamTask(team, task, actorId)`
 
+### Друзья по коду
+
+Заявку можно отправить, только зная код адресата (правила сверяют `friendCodes`).
+Друзья видят снапшоты профилей друг друга и попадают в приглашения и подбор команды.
+
+#### `createFriendCode(userId, previousCode?)` → `code`
+Личный код; старый (если передан) перестаёт работать, друзья остаются.
+
+#### `sendFriendRequest(profile, code)` → `'sent' | 'accepted'`
+Заявка по коду. Если встречная заявка уже есть — она принимается.
+
+#### `acceptFriendRequest(friendshipId, profile)` / `removeFriendship(friendshipId, userId)`
+Принять; отклонить, отменить или удалить из друзей.
+
+#### `refreshFriendSnapshots(friendships, profile)`
+Обновляет мой снапшот у друзей, если анкета изменилась.
+
 ### Обратная связь (`utils/teamFeedback.js`)
 
 Отвечает любой участник, один раз (повторная запись запрещена правилами).
@@ -168,5 +185,8 @@ teams/{teamId}              — команда
   pulseSurveys/{week_uid}   — пульс недели: answers, frictionWith, comment
   peerReviews/{iter_uid}    — оценка коллег: ratings { uid: { критерий: 1–5 } }
 teamJoinCodes/{code}        — код вступления в команду
+friendCodes/{code}          — личный код друга: { code, userId }
+friendships/{uidA_uidB}     — заявка или дружба (uid по алфавиту): status pending|accepted,
+                              snapshots { uid: снапшот профиля для подбора команды }
 teamInvites/{inviteId}      — приглашение в команду
 ```

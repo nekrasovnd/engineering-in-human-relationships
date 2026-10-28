@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useFriendsData } from './useFriendsData';
 import { useMutualMatches } from './useMutualMatches';
 import { useTeams } from './useTeams';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../services/firestore';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { canUseDiscover } from '../utils/profileState';
+import { mergeInviteCandidates } from '../utils/teamSelection';
 import {
   canManageMember,
   canTeamMember,
@@ -72,6 +74,7 @@ export function useTeamWorkspace(teamId, profile) {
     profile.userId,
     { enabled: can.invite && canUseDiscover(profile) },
   );
+  const { friends, loading: friendsLoading } = useFriendsData(profile.userId);
 
   const [infoForm, setInfoForm] = useState(() => buildInfoForm(team));
   const [inviteeIds, setInviteeIds] = useState([]);
@@ -116,9 +119,12 @@ export function useTeamWorkspace(teamId, profile) {
   const invitableMatches = useMemo(
     () =>
       team
-        ? mutualMatches.filter((item) => !team.memberIds.includes(item.userId))
+        ? mergeInviteCandidates(
+            mutualMatches,
+            friends.map((item) => item.profile),
+          ).filter((item) => !team.memberIds.includes(item.userId))
         : [],
-    [mutualMatches, team],
+    [friends, mutualMatches, team],
   );
   const infoDirty =
     Boolean(team) &&
@@ -281,7 +287,7 @@ export function useTeamWorkspace(teamId, profile) {
     infoForm,
     infoDirty,
     invitableMatches,
-    matchesLoading,
+    matchesLoading: matchesLoading || friendsLoading,
     inviteeIds,
     busyAction,
     error,

@@ -160,6 +160,42 @@ export function sanitizeDiscoverProfile(profile) {
   return normalizedProfile;
 }
 
+/** Заявка или дружба: снапшоты профилей приводятся к сравнимому виду. */
+export function sanitizeFriendship(friendship, friendshipId = '') {
+  const id = sanitizeRequiredText(friendshipId);
+  const userIds = Array.isArray(friendship?.userIds)
+    ? friendship.userIds.map((item) => sanitizeRequiredText(item)).filter(Boolean)
+    : [];
+  const status = ['pending', 'accepted'].includes(friendship?.status)
+    ? friendship.status
+    : '';
+
+  if (!id || userIds.length !== 2 || !status) {
+    return null;
+  }
+
+  const storedSnapshots =
+    friendship?.snapshots && typeof friendship.snapshots === 'object'
+      ? friendship.snapshots
+      : {};
+
+  return {
+    id,
+    userIds,
+    requesterId: sanitizeRequiredText(friendship?.requesterId),
+    addresseeId: sanitizeRequiredText(friendship?.addresseeId),
+    status,
+    code: sanitizeOptionalText(friendship?.code),
+    snapshots: Object.fromEntries(
+      userIds
+        .map((userId) => [userId, sanitizeComparableProfile(storedSnapshots[userId])])
+        .filter(([userId, snapshot]) => snapshot?.userId === userId),
+    ),
+    createdAt: sanitizeOptionalText(friendship?.createdAt),
+    acceptedAt: sanitizeOptionalText(friendship?.acceptedAt),
+  };
+}
+
 export function sanitizeMatchAction(action) {
   const fromUid = sanitizeRequiredText(action?.fromUid);
   const toUid = sanitizeRequiredText(action?.toUid);

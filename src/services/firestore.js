@@ -1384,3 +1384,159 @@ export function subscribeIncomingMatchDecisions(userId, callback, onError) {
     onError,
   );
 }
+
+// ─── Друзья по коду ─────────────────────────────────────────────────────────
+// friendCodes/{code}       — личный код: { code, userId }
+// friendships/{a_b}        — заявка или дружба пары (uid по алфавиту),
+//                            snapshots: { uid: снапшот профиля для подбора команды }
+
+export function getFriendshipId(firstUserId, secondUserId) {
+  return [firstUserId, secondUserId].sort().join('_');
+}
+
+async function reserveUniqueFriendCode() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = generateTeamJoinCode();
+    const snapshot = await getDoc(doc(db, 'friendCodes', code));
+
+    if (!snapshot.exists()) {
+      return code;
+    }
+  }
+
+  throw new Error('Unable to reserve friend code');
+}
+
+/** Создаёт личный код друга (старый, если передан, выключается). */
+export async function createFriendCode(userId, previousCode = '') {
+  assertCurrentUser(userId);
+
+  const code = await reserveUniqueFriendCode();
+  const batch = writeBatch(db);
+
+  if (previousCode) {
+    batch.delete(doc(db, 'friendCodes', previousCode));
+  }
+
+  batch.set(doc(db, 'friendCodes', code), { code, userId, createdAt: nowIso() });
+  await batch.commit();
+  return code;
+}
+
+async function readOwnFriendship(friendshipId) {
+  try {
+    const snapshot = await getDoc(doc(db, 'friendships', friendshipId));
+    return snapshot.exists() ? snapshot.data() : null;
+  } catch {
+    // Правила не дают прочитать несуществующий документ — значит, его нет.
+    return null;
+  }
+}
+
+/**
+ * Заявка в друзья по коду. Если встречная заявка уже есть — она принимается.
+ * @returns {'sent' | 'accepted'}
+ */
+export async function sendFriendRequest(profile, code) {
+  assertCurrentUser(profile.userId);
+
+  const snapshot = buildMemberSnapshot(profile);
+  if (!snapshot) {
+    throw new Error('invalid-profile-data');
+  }
+
+  const normalizedCode = normalizeTeamJoinCode(code);
+  if (normalizedCode.length < 6) {
+    throw new Error('invalid-code');
+  }
+
+  const codeSnapshot = await getDoc(doc(db, 'friendCodes', normalizedCode));
+  const friendId = codeSnapshot.exists() ? codeSnapshot.data().userId : '';
+
+  if (!friendId) {
+    throw new Error('code-not-found');
+  }
+
+  if (friendId === profile.userId) {
+    throw new Error('own-code');
+  }
+
+  const friendshipId = getFriendshipId(profile.userId, friendId);
+  const existing = await readOwnFriendship(friendshipId);
+
+  if (existing?.status === 'accepted') {
+    throw new Error('already-friends');
+  }
+
+  if (existing?.status === 'pending') {
+    if (existing.requesterId === profile.userId) {
+      throw new Error('request-pending');
+    }
+
+    await acceptFriendRequest(friendshipId, profile);
+    return 'accepted';
+  }
+
+  const timestamp = nowIso();
+  await setDoc(doc(db, 'friendships', friendshipId), {
+    userIds: [profile.userId, friendId].sort(),
+    requesterId: profile.userId,
+    addresseeId: friendId,
+    status: 'pending',
+    code: normalizedCode,
+    snapshots: { [profile.userId]: snapshot },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    acceptedAt: '',
+  });
+  return 'sent';
+}
+
+export async function acceptFriendRequest(friendshipId, profile) {
+  assertCurrentUser(profile.userId);
+
+  const snapshot = buildMemberSnapshot(profile);
+  if (!snapshot) {
+    throw new Error('invalid-profile-data');
+  }
+
+  const timestamp = nowIso();
+  await updateDoc(doc(db, 'friendships', friendshipId), {
+    status: 'accepted',
+    [`snapshots.${profile.userId}`]: snapshot,
+    acceptedAt: timestamp,
+    updatedAt: timestamp,
+  });
+}
+
+/** Отклонить или отменить заявку, удалить из друзей. */
+export async function removeFriendship(friendshipId, userId) {
+  assertCurrentUser(userId);
+  await deleteDoc(doc(db, 'friendships', friendshipId));
+}
+
+/** Обновляет мой снапшот у друзей, если анкета или имя изменились. */
+export async function refreshFriendSnapshots(friendships, profile) {
+  const snapshot = buildMemberSnapshot(profile);
+
+  if (!snapshot || auth.currentUser?.uid !== profile.userId) {
+    return;
+  }
+
+  // Сравниваем в одинаково нормализованном виде: порядок ключей из Firestore не гарантирован.
+  const serialized = JSON.stringify(sanitizeComparableProfile(snapshot));
+  const stale = friendships.filter(
+    (item) =>
+      item.status === 'accepted' &&
+      JSON.stringify(item.snapshots[profile.userId] ?? null) !== serialized,
+  );
+
+  await Promise.all(
+    stale.map((item) =>
+      updateDoc(doc(db, 'friendships', item.id), {
+        [`snapshots.${profile.userId}`]: snapshot,
+        updatedAt: nowIso(),
+      }),
+    ),
+  );
+}

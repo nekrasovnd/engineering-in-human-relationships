@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useFriends } from './useFriends';
 import { useMutualMatches } from './useMutualMatches';
 import { useTeamInvites } from './useTeamInvites';
 import { useTeams } from './useTeams';
@@ -9,6 +10,7 @@ import {
   requestTeamInviteByCode,
 } from '../services/firestore';
 import { canUseDiscover } from '../utils/profileState';
+import { mergeInviteCandidates } from '../utils/teamSelection';
 
 export const GOAL_OPTIONS = ['Работа', 'Семья', 'Личные отношения'];
 
@@ -51,6 +53,11 @@ export function useTeamsWorkspace(profile, locationState) {
     {
       enabled: canUseDiscover(profile),
     },
+  );
+  const friends = useFriends(profile);
+  const inviteCandidates = useMemo(
+    () => mergeInviteCandidates(mutualMatches, friends.friends.map((item) => item.profile)),
+    [friends.friends, mutualMatches],
   );
   const { invites, loading: invitesLoading } = useTeamInvites(profile.userId);
   const { teams, loading: teamsLoading } = useTeams(profile.userId);
@@ -134,7 +141,7 @@ export function useTeamsWorkspace(profile, locationState) {
 
     try {
       setSaving(true);
-      const invitedProfiles = mutualMatches.filter((item) =>
+      const invitedProfiles = inviteCandidates.filter((item) =>
         form.inviteeIds.includes(item.userId),
       );
 
@@ -210,9 +217,18 @@ export function useTeamsWorkspace(profile, locationState) {
     }
   };
 
+  // Состав из «Подбора команды» — в форму создания.
+  const setInvitees = (userIds) => {
+    setForm((current) => ({
+      ...current,
+      inviteeIds: userIds.filter((userId) => userId !== profile.userId),
+    }));
+  };
+
   return {
-    mutualMatches,
-    matchesLoading,
+    friends,
+    inviteCandidates,
+    matchesLoading: matchesLoading || friends.loading,
     invitesLoading,
     teamsLoading,
     form,
@@ -228,6 +244,7 @@ export function useTeamsWorkspace(profile, locationState) {
     teams,
     updateFormField,
     toggleInvitee,
+    setInvitees,
     updateCodeInviteValue,
     createTeam,
     acceptInvite,

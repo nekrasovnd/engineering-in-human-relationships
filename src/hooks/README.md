@@ -137,6 +137,20 @@ useTeamPlanning(team, profile, { onError, onNotice })
 useTeamFeedback(team, profile, iterations, { onError, onNotice })
 ```
 
+### `useFriendsData.js`
+Подписка на `friendships` и мой `friendCodes`: `friends`, `incoming`, `outgoing`, `friendCode`.
+
+### `useFriends.js`
+Блок «Друзья» на странице команд: код, добавление по коду, заявки.
+Заодно обновляет мой снапшот у друзей (одна попытка на версию профиля).
+
+### `useTeamSelection.js`
+Блок «Подбор команды»: выбранные кандидаты, размер, «я в составе», лучшие составы.
+
+```js
+useTeamSelection(profile, candidates)
+```
+
 ### `useTeamFunctions.js`
 Вкладка «Роли»: роли в работе, уровни, подсказки по анкете и предупреждения
 (`buildFunctionHints`). Назначают владелец и админы.
