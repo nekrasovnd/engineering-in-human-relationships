@@ -56,12 +56,12 @@ src/
 ├── pages/                    # Страницы приложения (по одной на маршрут)
 │   ├── AuthPage.jsx          # /auth — вход, регистрация, сброс пароля
 │   ├── QuestionnairePage.jsx # /questionnaire — прохождение опросника
-│   ├── ProfilePage.jsx       # /profile — просмотр профиля, редактирование базовых данных
+│   ├── ProfilePage.jsx       # /profile — профиль, психокарта R/F/A, редактирование данных
 │   ├── DiscoverPage.jsx      # /discover — лента знакомств, взаимные совпадения
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
 │   ├── TeamsPage.jsx         # /teams — создание, подбор команды, друзья, приглашения, список
 │   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, обратная связь, роли, участники, настройки
-│   └── KnowledgeBasePage.jsx # /knowledge — база знаний ТРИЗ с поиском
+│   └── KnowledgeBasePage.jsx # /knowledge — инженерный подход и база знаний ТРИЗ с поиском
 │
 ├── components/               # Переиспользуемые UI-компоненты
 │   ├── AppShell.jsx          # Обёртка аутентифицированного UI (header + nav + outlet)
@@ -91,6 +91,13 @@ src/
 │   ├── FeedbackResults.jsx   # Сводки для владельца/админов
 │   ├── FrictionTimelineChart.jsx # График индекса трения по неделям
 │   ├── TeamFunctionsPanel.jsx # Вкладка «Роли»: назначение и подсказки
+│   ├── TeamDynamicsPanel.jsx # Вкладка «Динамика»: сравнение или своя психокарта
+│   ├── PsychMapCard.jsx      # Психокарта: шкалы R/F/A, режим реакции, советы, график
+│   ├── PsychScaleBar.jsx     # Шкала R, F или A
+│   ├── DynamicsComparison.jsx # Реакции нескольких людей: график, таблица, замечания
+│   ├── ReactionChart.jsx     # График переходного процесса Y(t)
+│   ├── ReactionSignalControls.jsx # Выбор входного воздействия
+│   ├── EngineeringApproachSection.jsx # Раздел гида «Инженерный подход»
 │   ├── FunctionalRoleBadge.jsx # Бейдж «Аналитик · Middle»
 │   ├── FriendsPanel.jsx      # Друзья по коду
 │   ├── TeamSelectionPanel.jsx # Подбор лучших составов команды
@@ -99,6 +106,7 @@ src/
 │   └── InstructionCard.jsx      # Памятка «Быстро и по делу»
 │
 ├── data/                     # Статические данные и расчётная логика предметной области
+│   ├── engineeringApproach.js # Контур управления, ТО, жизненный цикл, решение задач
 │   └── questionnaire.js      # FACTOR_CONFIG (8 факторов), вопросы, LIKERT_OPTIONS,
 │                             # calculateQuestionnaireResult(), getDisplayFactorScore()
 │
@@ -110,6 +118,7 @@ src/
     ├── teamFeedback.js       # Пульс-опросы, оценка коллег, индекс трения
     ├── teamFunctions.js      # Роли в работе, квалификация, подсказки по анкете
     ├── teamSelection.js      # Подбор команды: перебор составов и их оценка
+    ├── psychDynamics.js      # Психокарта R/F/A и модель реакции из методички по ТАУ
     ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля
@@ -183,4 +192,4 @@ useDiscoverWorkspace → объединяет оба хука + управляе
 |---|---|---|
 | Один JS-бандл ~929 KB — нет code splitting | vite.config.js | Низкий |
 | `useFirestoreList.js` uses spreading in deps array | useFirestoreList.js | Низкий |
-| Тесты есть только для правил Firestore (`npm run test:rules`) | tests/ | Средний |
+| Тесты есть только для правил Firestore (`npm run test:rules`) и модели реакции (`npm run test:unit`) | tests/ | Средний |

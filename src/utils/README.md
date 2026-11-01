@@ -63,6 +63,24 @@
 
 ---
 
+### `psychDynamics.js`
+Психокарта и модель из методички «Человек как динамическое звено системы управления»:
+`R·Y″ + (2F√(RA) / (Q·F0))·Y′ + (A/Q²)·Y = X`, где F0 = 10, Q = 1.
+Файл без импортов — математика проверяется в Node (`npm run test:unit`).
+
+Баллы R, F, A (0–20) считаются по факторам анкеты, отдельного теста нет и в Firestore
+ничего не пишется. При F выше F0 получается ξ > 1, как и допускает методичка.
+
+**Экспорты:**
+- `getPsychMap(factorScores)` → `{ R, F, A }`; `getPsychLevel(score)` — низкий/средний/высокий
+- `getDynamicsParameters(map, Q)` → `{ xi, T, k, a2, a1, a0 }`
+- `getReactionAt(time, parameters, signal)` — точное решение; импульс = два скачка
+- `analyzeReaction(parameters, signal)` — время успокоения (±5%), колебания, перехлёст
+- `buildPersonDynamics(person, signal)`, `buildReactionSeries(rows, signal)` — данные для экрана
+- `buildDynamicsAdvice`, `buildGroupDynamicsNotes` — советы человеку и замечания по группе
+
+---
+
 ### `teamSelection.js`
 Подбор команды: перебором всех составов нужного размера из выбранных кандидатов.
 

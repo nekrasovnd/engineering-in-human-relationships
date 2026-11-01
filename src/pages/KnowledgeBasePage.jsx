@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { searchKnowledge } from '../utils/trizKnowledge';
+import EngineeringApproachSection from '../components/EngineeringApproachSection';
 import SectionCard from '../components/SectionCard';
 
 export default function KnowledgeBasePage() {
@@ -20,6 +21,8 @@ export default function KnowledgeBasePage() {
           placeholder="Поиск по темам, ролям, конфликтам и приёмам"
         />
       </SectionCard>
+
+      <EngineeringApproachSection />
 
       <SectionCard
         title="Если нужна быстрая идея"

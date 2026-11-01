@@ -6,10 +6,12 @@ import { useTeamFeedback } from '../hooks/useTeamFeedback';
 import { useTeamFunctions } from '../hooks/useTeamFunctions';
 import { useTeamPlanning } from '../hooks/useTeamPlanning';
 import { useTeamWorkspace } from '../hooks/useTeamWorkspace';
+import { canTeamMember } from '../utils/teamRoles';
 import CurrentIterationCard from '../components/CurrentIterationCard';
 import SectionCard from '../components/SectionCard';
 import TaskFormDialog from '../components/TaskFormDialog';
 import TeamCard from '../components/TeamCard';
+import TeamDynamicsPanel from '../components/TeamDynamicsPanel';
 import TeamFeedbackPanel from '../components/TeamFeedbackPanel';
 import TeamFunctionsPanel from '../components/TeamFunctionsPanel';
 import TeamIterationsPanel from '../components/TeamIterationsPanel';
@@ -24,6 +26,7 @@ const TABS = [
   { key: 'iterations', label: 'Итерации' },
   { key: 'feedback', label: 'Обратная связь' },
   { key: 'functions', label: 'Роли' },
+  { key: 'dynamics', label: 'Динамика' },
   { key: 'members', label: 'Участники' },
   { key: 'settings', label: 'Настройки' },
 ];
@@ -180,6 +183,14 @@ export default function TeamPage() {
 
       {activeTab === 'functions' ? (
         <TeamFunctionsPanel functions={functions} members={workspace.members} />
+      ) : null}
+
+      {activeTab === 'dynamics' ? (
+        <TeamDynamicsPanel
+          members={workspace.members}
+          currentUserId={profile.userId}
+          canViewAll={canTeamMember(team, profile.userId, 'viewDynamics')}
+        />
       ) : null}
 
       <TaskFormDialog team={team} planning={planning} />

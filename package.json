@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-kod",
     "seed:emulators": "node scripts/seed-emulators.cjs",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-kod \"node --test tests/*.test.cjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-kod \"node --test tests/*.test.cjs\"",
+    "test:unit": "node --test tests/unit/*.test.cjs"
   },
   "dependencies": {
     "chart.js": "^4.4.3",

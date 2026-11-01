@@ -8,6 +8,7 @@ import { mergeComparisonCandidates } from '../utils/comparisonCandidates';
 import { formatEgoStateLabel } from '../utils/egoState';
 import { canUseDiscover } from '../utils/profileState';
 import ComparisonResultCard from '../components/ComparisonResultCard';
+import DynamicsComparison from '../components/DynamicsComparison';
 import SectionCard from '../components/SectionCard';
 
 export default function ComparePage() {
@@ -44,6 +45,10 @@ export default function ComparePage() {
   const selectedProfile = useMemo(
     () => candidates.find((item) => item.userId === selectedId) || null,
     [candidates, selectedId],
+  );
+  const pair = useMemo(
+    () => (selectedProfile ? [profile, selectedProfile] : []),
+    [profile, selectedProfile],
   );
   const comparison = selectedProfile
     ? calculateCompatibility(profile, selectedProfile)
@@ -130,6 +135,12 @@ export default function ComparePage() {
             firstProfile={profile}
             secondProfile={selectedProfile}
             comparison={comparison}
+          />
+
+          <DynamicsComparison
+            title="Как вы оба реагируете на нагрузку"
+            subtitle="Одно и то же воздействие: кто раскачивается сильнее и кому нужно больше времени, чтобы прийти в норму."
+            people={pair}
           />
 
           <SectionCard

@@ -55,6 +55,8 @@ export const TEAM_PERMISSIONS = {
   updateOwnTasks: ['owner', 'admin', 'lead', 'member'],
   giveFeedback: ['owner', 'admin', 'lead', 'member'],
   viewFeedback: ['owner', 'admin'],
+  // Только интерфейс: снапшоты профилей и так доступны участникам команды.
+  viewDynamics: ['owner', 'admin'],
   transferOwnership: ['owner'],
   deleteTeam: ['owner'],
   leave: ['admin', 'lead', 'member'],
@@ -70,6 +72,7 @@ export const TEAM_PERMISSION_LABELS = [
   { action: 'updateOwnTasks', label: 'Менять статус своих задач' },
   { action: 'giveFeedback', label: 'Проходить опросы и оценивать коллег' },
   { action: 'viewFeedback', label: 'Видеть результаты опросов и оценок' },
+  { action: 'viewDynamics', label: 'Сравнивать реакции участников на нагрузку' },
   { action: 'transferOwnership', label: 'Передавать владение' },
   { action: 'deleteTeam', label: 'Удалить команду' },
 ];

@@ -35,6 +35,7 @@ npm run emulators        # Auth + Firestore на 127.0.0.1
 npm run seed:emulators   # тестовые пользователи и демо-команда (логины в scripts/seed-emulators.cjs)
 npm run dev:emulators    # сайт, подключённый к эмуляторам
 npm run test:rules       # тесты правил Firestore
+npm run test:unit        # тесты математики (эмулятор не нужен)
 ```
 
 После изменения `firebase/firestore.rules` правила нужно задеплоить:
