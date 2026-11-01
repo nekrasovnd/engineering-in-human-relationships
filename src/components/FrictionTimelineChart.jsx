@@ -75,8 +75,11 @@ export default function FrictionTimelineChart({ timeline }) {
   };
 
   return (
-    <div className="h-56">
-      <Line data={data} options={options} />
+    // Canvas вне потока: иначе он держит ширину сетки и график не сжимается вместе с окном.
+    <div className="relative h-56">
+      <div className="absolute inset-0">
+        <Line data={data} options={options} />
+      </div>
     </div>
   );
 }

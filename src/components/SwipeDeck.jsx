@@ -67,7 +67,7 @@ export default function SwipeDeck({
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            Общий прогноз
+            Оценка по анкетам
           </p>
           <p className="mt-2 text-lg font-semibold text-white">
             {comparison.verdict}

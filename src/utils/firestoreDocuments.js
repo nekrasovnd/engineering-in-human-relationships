@@ -5,7 +5,14 @@ import {
   TASK_STATUS_KEYS,
   isDateString,
 } from './teamPlanning';
-import { PEER_CRITERIA_KEYS, PULSE_KEYS, RATING_VALUES } from './teamFeedback';
+import {
+  PEER_CRITERIA_KEYS,
+  PULSE_KEYS,
+  PULSE_REQUIRED_KEYS,
+  RATING_VALUES,
+} from './teamFeedback';
+import { BIG_FIVE_FACTOR_KEYS } from '../data/optionalTests';
+import { PAIR_QUESTION_KEYS } from './pairPulse';
 import { FUNCTIONAL_ROLE_KEYS, QUALIFICATION_KEYS } from './teamFunctions';
 
 const SYSTEM_INDEX_KEYS = [
@@ -103,6 +110,18 @@ export function sanitizeSystemIndices(input, factorScores, factorReliability) {
   return nextIndices;
 }
 
+/** Только баллы: сами ответы остаются в личном профиле. */
+function sanitizeBigFiveSnapshot(bigFive) {
+  const scores = bigFive?.scores;
+  const isValid = BIG_FIVE_FACTOR_KEYS.every(
+    (key) => Number.isFinite(scores?.[key]) && scores[key] >= 0 && scores[key] <= 10,
+  );
+
+  return isValid
+    ? { scores: Object.fromEntries(BIG_FIVE_FACTOR_KEYS.map((key) => [key, scores[key]])) }
+    : null;
+}
+
 export function sanitizeComparableProfile(profile) {
   const userId = sanitizeRequiredText(profile?.userId);
   const name = sanitizeRequiredText(profile?.name);
@@ -124,8 +143,10 @@ export function sanitizeComparableProfile(profile) {
     10,
   );
   const age = sanitizeOptionalNumber(profile?.age, 16, 90);
+  const bigFive = sanitizeBigFiveSnapshot(profile?.bigFive);
 
   return {
+    ...(bigFive ? { bigFive } : {}),
     userId,
     name,
     age: age === null ? null : Math.round(age),
@@ -368,10 +389,12 @@ export function sanitizePulseSurvey(pulse, pulseId = '') {
   const userId = sanitizeRequiredText(pulse?.userId);
   const weekKey = sanitizeRequiredText(pulse?.weekKey);
   const answers = Object.fromEntries(
-    PULSE_KEYS.map((key) => [key, sanitizeRating(pulse?.answers?.[key])]),
+    PULSE_KEYS.map((key) => [key, sanitizeRating(pulse?.answers?.[key])]).filter(
+      ([, value]) => value !== null,
+    ),
   );
 
-  if (!userId || !weekKey || Object.values(answers).some((value) => value === null)) {
+  if (!userId || !weekKey || PULSE_REQUIRED_KEYS.some((key) => answers[key] === undefined)) {
     return null;
   }
 
@@ -384,6 +407,26 @@ export function sanitizePulseSurvey(pulse, pulseId = '') {
       ? pulse.frictionWith.map((item) => sanitizeRequiredText(item)).filter(Boolean)
       : [],
     comment: sanitizeOptionalText(pulse?.comment),
+    createdAt: sanitizeOptionalText(pulse?.createdAt),
+  };
+}
+
+export function sanitizePairPulse(pulse, pulseId = '') {
+  const userId = sanitizeRequiredText(pulse?.userId);
+  const weekKey = sanitizeRequiredText(pulse?.weekKey);
+  const answers = Object.fromEntries(
+    PAIR_QUESTION_KEYS.map((key) => [key, sanitizeRating(pulse?.answers?.[key])]),
+  );
+
+  if (!userId || !weekKey || Object.values(answers).some((value) => value === null)) {
+    return null;
+  }
+
+  return {
+    id: sanitizeRequiredText(pulseId),
+    userId,
+    weekKey,
+    answers,
     createdAt: sanitizeOptionalText(pulse?.createdAt),
   };
 }

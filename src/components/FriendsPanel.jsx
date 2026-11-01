@@ -1,4 +1,5 @@
-import { Check, Copy, RefreshCw, UserMinus, X } from 'lucide-react';
+import { Check, Copy, HeartPulse, RefreshCw, UserMinus, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { formatEgoStateLabel } from '../utils/egoState';
 import AvatarBadge from './AvatarBadge';
 import SectionCard from './SectionCard';
@@ -198,6 +199,13 @@ export default function FriendsPanel({ friends }) {
                 <div className="mt-3 space-y-2">
                   {friends.friends.map((item) => (
                     <PersonRow key={item.friendshipId} profile={item.profile}>
+                      <Link
+                        to={`/pairs/${item.friendshipId}`}
+                        className={`${ICON_BUTTON} border-slate-700 text-slate-200 hover:border-blue-400`}
+                      >
+                        <HeartPulse className="h-3.5 w-3.5" />
+                        Опрос пары
+                      </Link>
                       <button
                         type="button"
                         onClick={() => unfriend(item)}

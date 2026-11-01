@@ -27,7 +27,7 @@ export default function PulseSurveyForm({ feedback }) {
           Опрос недели · с {formatWeekLabel(weekKey)}
         </p>
         <p className="mt-1 text-sm leading-6 text-slate-400">
-          Пять коротких вопросов, чтобы вовремя заметить трение. Ответы видят только
+          Восемь коротких вопросов, чтобы вовремя заметить трение. Ответы видят только
           владелец и администраторы команды — в виде общей картины.
         </p>
       </div>

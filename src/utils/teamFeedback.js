@@ -46,9 +46,36 @@ export const PULSE_QUESTIONS = [
     highLabel: 'отлично',
     frictionDirect: false,
   },
+  // Три вида конфликта ведут себя по-разному (de Wit et al., 2012): конфликты
+  // отношений и процесса стабильно вредят, а спор о задаче — нет, поэтому в индекс не входит.
+  {
+    key: 'process',
+    text: 'Были ли трения из-за того, кто, что и как делает?',
+    lowLabel: 'нет',
+    highLabel: 'постоянно',
+    frictionDirect: true,
+  },
+  {
+    key: 'taskDebate',
+    text: 'Спорили ли вы по существу задач?',
+    lowLabel: 'почти нет',
+    highLabel: 'много',
+    frictionDirect: true,
+    inFrictionIndex: false,
+  },
+  {
+    key: 'safety',
+    text: 'Можно ли в команде признать ошибку или сказать о проблеме без опасений?',
+    lowLabel: 'нельзя',
+    highLabel: 'всегда можно',
+    frictionDirect: false,
+  },
 ];
 
 export const PULSE_KEYS = PULSE_QUESTIONS.map((item) => item.key);
+
+/** Были с первой версии опроса; новые вопросы в старых ответах отсутствуют. */
+export const PULSE_REQUIRED_KEYS = ['tension', 'workload', 'clarity', 'support', 'mood'];
 
 export const PEER_CRITERIA = [
   { key: 'contribution', label: 'Вклад в результат' },
@@ -108,7 +135,7 @@ function average(values) {
 export function getPulseFrictionIndex(answers) {
   const parts = PULSE_QUESTIONS.map((question) => {
     const value = Number(answers?.[question.key]);
-    if (!RATING_VALUES.includes(value)) {
+    if (question.inFrictionIndex === false || !RATING_VALUES.includes(value)) {
       return null;
     }
     return likertToTen(question.frictionDirect ? value : 6 - value);
@@ -141,10 +168,12 @@ export function buildPulseTimeline(pulses) {
         (average(items.map((item) => getPulseFrictionIndex(item.answers)).filter((v) => v !== null)) ?? 0).toFixed(1),
       ),
       averages: Object.fromEntries(
-        PULSE_KEYS.map((key) => [
-          key,
-          Number((average(items.map((item) => item.answers[key])) ?? 0).toFixed(1)),
-        ]),
+        PULSE_KEYS.map((key) => {
+          const value = average(
+            items.map((item) => item.answers[key]).filter((answer) => answer !== undefined),
+          );
+          return [key, value === null ? null : Number(value.toFixed(1))];
+        }),
       ),
     }));
 }

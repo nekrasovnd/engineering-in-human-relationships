@@ -50,6 +50,14 @@ function getWeekKey(date) {
   return `${target.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+// Баллы Большой пятёрки у владельца и части его друзей — для «Подбора команды».
+const BIG_FIVE = {
+  owner: { extraversion: 7, agreeableness: 6.5, conscientiousness: 8, stability: 5, openness: 6 },
+  evgeny: { extraversion: 3, agreeableness: 6, conscientiousness: 9, stability: 7, openness: 7 },
+  zoya: { extraversion: 4, agreeableness: 7, conscientiousness: 8, stability: 7.5, openness: 6.5 },
+  admin: { extraversion: 6, agreeableness: 5.5, conscientiousness: 7.5, stability: 6, openness: 5 },
+};
+
 async function createAuthUser(email) {
   const response = await fetch(
     `${AUTH_URL}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
@@ -115,6 +123,9 @@ async function main() {
       profileIntegrity: result.profileIntegrity,
       questionnaireCompleted: true,
       discoverVisible: true,
+      ...(BIG_FIVE[user.login]
+        ? { bigFive: { scores: BIG_FIVE[user.login], answers: {}, completedAt: NOW } }
+        : {}),
       createdAt: NOW,
       updatedAt: NOW,
     });
@@ -122,7 +133,12 @@ async function main() {
 
   const byLogin = Object.fromEntries(profiles.map((item) => [item.login, item]));
   const snapshotOf = ({ login, answers, questionnaireCompleted, discoverVisible, age, gender, createdAt, updatedAt, ...rest }) => rest;
-  const discoverOf = ({ login, answers, ...rest }) => rest;
+  const discoverOf = ({ login, answers, bigFive, ...rest }) => rest;
+  // В снапшот попадают только баллы, как в buildMemberSnapshot.
+  const friendSnapshotOf = (profile) => ({
+    ...snapshotOf(profile),
+    ...(profile.bigFive ? { bigFive: { scores: profile.bigFive.scores } } : {}),
+  });
   const teamMembers = ['owner', 'admin', 'lead', 'member'].map((login) => byLogin[login]);
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -177,13 +193,47 @@ async function main() {
         code: 'ANNA2026',
         snapshots:
           status === 'accepted'
-            ? { [owner.userId]: snapshotOf(owner), [friend.userId]: snapshotOf(friend) }
-            : { [friend.userId]: snapshotOf(friend) },
+            ? { [owner.userId]: friendSnapshotOf(owner), [friend.userId]: friendSnapshotOf(friend) }
+            : { [friend.userId]: friendSnapshotOf(friend) },
         createdAt: NOW,
         updatedAt: NOW,
         acceptedAt: status === 'accepted' ? NOW : '',
       });
     }
+
+    // Опрос пары владельца и Евгения: две прошлые недели, на этой ответил только Евгений.
+    const evgenyPair = [byLogin.owner.userId, byLogin.evgeny.userId].sort().join('_');
+    const pairAnswers = [
+      { offset: -14, answers: { appreciation: 4, commitment: 5, closeness: 4, conflict: 2 } },
+      { offset: -7, answers: { appreciation: 2, commitment: 3, closeness: 2, conflict: 4 } },
+    ];
+
+    for (const { offset, answers } of pairAnswers) {
+      const weekDate = new Date();
+      weekDate.setDate(weekDate.getDate() + offset);
+      const weekKey = getWeekKey(weekDate);
+
+      for (const login of ['owner', 'evgeny']) {
+        const userId = byLogin[login].userId;
+        await setDoc(doc(db, 'friendships', evgenyPair, 'pulses', `${weekKey}_${userId}`), {
+          userId,
+          weekKey,
+          answers,
+          createdAt: NOW,
+        });
+      }
+    }
+
+    const currentWeek = getWeekKey(new Date());
+    await setDoc(
+      doc(db, 'friendships', evgenyPair, 'pulses', `${currentWeek}_${byLogin.evgeny.userId}`),
+      {
+        userId: byLogin.evgeny.userId,
+        weekKey: currentWeek,
+        answers: { appreciation: 4, commitment: 4, closeness: 4, conflict: 2 },
+        createdAt: NOW,
+      },
+    );
 
     await setDoc(doc(db, 'teams', 'demo-team'), {
       name: 'Экипаж проектного старта',

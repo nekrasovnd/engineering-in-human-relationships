@@ -131,6 +131,14 @@
 #### `refreshFriendSnapshots(friendships, profile)`
 Обновляет мой снапшот у друзей, если анкета изменилась.
 
+#### `submitPairPulse(friendshipId, actorId, answers)`
+Опрос недели для пары: документ `friendships/{a_b}/pulses/{weekKey}_{uid}`, один раз в неделю.
+Читают оба; скрытие ответов партнёра до своего — только в интерфейсе.
+
+#### `saveOptionalTest(userId, testKey, answers)`
+Результат теста из `data/optionalTests.js` в личный профиль: `{ scores, answers, completedAt }`.
+В снапшоты для команд и друзей попадают только баллы Большой пятёрки.
+
 ### Обратная связь (`utils/teamFeedback.js`)
 
 Отвечает любой участник, один раз (повторная запись запрещена правилами).
@@ -188,5 +196,6 @@ teamJoinCodes/{code}        — код вступления в команду
 friendCodes/{code}          — личный код друга: { code, userId }
 friendships/{uidA_uidB}     — заявка или дружба (uid по алфавиту): status pending|accepted,
                               snapshots { uid: снапшот профиля для подбора команды }
+  pulses/{week_uid}         — опрос пары: answers (признательность, преданность, близость, конфликт)
 teamInvites/{inviteId}      — приглашение в команду
 ```

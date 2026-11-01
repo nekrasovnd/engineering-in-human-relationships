@@ -9,6 +9,8 @@ import DiscoverPage from './pages/DiscoverPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
 import ProfilePage from './pages/ProfilePage';
 import QuestionnairePage from './pages/QuestionnairePage';
+import OptionalTestPage from './pages/OptionalTestPage';
+import PairPage from './pages/PairPage';
 import TeamPage from './pages/TeamPage';
 import TeamsPage from './pages/TeamsPage';
 import { hasCompletedQuestionnaire } from './utils/profileState';
@@ -87,6 +89,8 @@ export default function App() {
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/teams" element={<TeamsPage />} />
             <Route path="/teams/:teamId" element={<TeamPage />} />
+            <Route path="/pairs/:friendshipId" element={<PairPage />} />
+            <Route path="/tests/:testKey" element={<OptionalTestPage />} />
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/knowledge" element={<KnowledgeBasePage />} />
           </Route>

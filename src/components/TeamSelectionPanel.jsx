@@ -57,6 +57,17 @@ function GroupCard({ group, rank, currentUserId, onUse }) {
             {weakestPair.compatibility}%
           </p>
         ) : null}
+        {group.traits ? (
+          <p className="text-slate-400">
+            Большая пятёрка: добросовестность {group.traits.conscientiousness}, открытость{' '}
+            {group.traits.openness}, самая низкая доброжелательность{' '}
+            {group.traits.minAgreeableness}
+          </p>
+        ) : (
+          <p className="text-slate-400">
+            Большую пятёрку прошли не все, поэтому оценка без неё.
+          </p>
+        )}
         {group.members.length >= 4 && group.missingRoles.length > 0 ? (
           <p className="text-slate-400">
             Не закрыто: {group.missingRoles.map(getFunctionalRoleLabel).join(', ')}

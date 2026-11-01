@@ -13,6 +13,9 @@ const PULSE_SHORT_LABELS = {
   clarity: 'Ясность задач',
   support: 'Поддержка',
   mood: 'Состояние',
+  process: 'Трения из-за процесса',
+  taskDebate: 'Споры о задачах (в индекс не входят)',
+  safety: 'Безопасно говорить о проблемах',
 };
 
 function PulseResults({ results, teamSize }) {
@@ -56,7 +59,7 @@ function PulseResults({ results, teamSize }) {
                     <div key={question.key} className="flex items-center justify-between text-sm">
                       <span className="text-slate-300">{PULSE_SHORT_LABELS[question.key]}</span>
                       <span className="font-medium text-white">
-                        {lastWeek.averages[question.key]}
+                        {lastWeek.averages[question.key] ?? '—'}
                       </span>
                     </div>
                   ))}

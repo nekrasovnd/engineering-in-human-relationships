@@ -51,6 +51,8 @@ src/
 │   ├── useFriendsData.js        # Подписка на друзей, заявки и мой код друга
 │   ├── useFriends.js            # Блок «Друзья»: код, добавление, заявки
 │   ├── useTeamSelection.js      # Блок «Подбор команды»
+│   ├── useOptionalTestForm.js   # Форма необязательного теста
+│   ├── usePairPulse.js          # Страница пары: опрос недели и график
 │   └── useQuestionnaireForm.js  # Состояние опросника (автосохранение черновика, валидация)
 │
 ├── pages/                    # Страницы приложения (по одной на маршрут)
@@ -61,7 +63,9 @@ src/
 │   ├── ComparePage.jsx       # /compare — сравнение двух профилей
 │   ├── TeamsPage.jsx         # /teams — создание, подбор команды, друзья, приглашения, список
 │   ├── TeamPage.jsx          # /teams/:teamId — обзор, задачи, итерации, обратная связь, роли, участники, настройки
-│   └── KnowledgeBasePage.jsx # /knowledge — инженерный подход и база знаний ТРИЗ с поиском
+│   ├── OptionalTestPage.jsx  # /tests/:testKey — Большая пятёрка, привязанность
+│   ├── PairPage.jsx          # /pairs/:friendshipId — опрос недели для пары
+│   └── KnowledgeBasePage.jsx # /knowledge — инженерный подход, книги и база знаний ТРИЗ
 │
 ├── components/               # Переиспользуемые UI-компоненты
 │   ├── AppShell.jsx          # Обёртка аутентифицированного UI (header + nav + outlet)
@@ -98,6 +102,8 @@ src/
 │   ├── ReactionChart.jsx     # График переходного процесса Y(t)
 │   ├── ReactionSignalControls.jsx # Выбор входного воздействия
 │   ├── EngineeringApproachSection.jsx # Раздел гида «Инженерный подход»
+│   ├── ReadingListSection.jsx # Раздел гида «Что почитать»
+│   ├── OptionalTestsCard.jsx # Необязательные тесты в профиле
 │   ├── FunctionalRoleBadge.jsx # Бейдж «Аналитик · Middle»
 │   ├── FriendsPanel.jsx      # Друзья по коду
 │   ├── TeamSelectionPanel.jsx # Подбор лучших составов команды
@@ -107,6 +113,8 @@ src/
 │
 ├── data/                     # Статические данные и расчётная логика предметной области
 │   ├── engineeringApproach.js # Контур управления, ТО, жизненный цикл, решение задач
+│   ├── optionalTests.js      # Большая пятёрка (IPIP) и привязанность: вопросы и подсчёт
+│   ├── readingList.js        # Теории отношений и книги для гида
 │   └── questionnaire.js      # FACTOR_CONFIG (8 факторов), вопросы, LIKERT_OPTIONS,
 │                             # calculateQuestionnaireResult(), getDisplayFactorScore()
 │
@@ -119,6 +127,8 @@ src/
     ├── teamFunctions.js      # Роли в работе, квалификация, подсказки по анкете
     ├── teamSelection.js      # Подбор команды: перебор составов и их оценка
     ├── psychDynamics.js      # Психокарта R/F/A и модель реакции из методички по ТАУ
+    ├── teamTraits.js         # Черты состава команды по Большой пятёрке
+    ├── pairPulse.js          # Опрос пары: вопросы, индекс напряжения, вопросы для разговора
     ├── clipboard.js          # copyTextToClipboard()
     ├── egoState.js           # formatEgoStateLabel() — человекочитаемый label эго-состояния
     ├── profileState.js       # canUseDiscover(), isDiscoverVisible() — утилиты состояния профиля

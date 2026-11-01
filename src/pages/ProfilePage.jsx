@@ -16,6 +16,7 @@ import {
 } from '../utils/profilePresentation';
 import AvatarBadge from '../components/AvatarBadge';
 import InstructionCard from '../components/InstructionCard';
+import OptionalTestsCard from '../components/OptionalTestsCard';
 import ProfileInsightCard from '../components/ProfileInsightCard';
 import PsychMapCard from '../components/PsychMapCard';
 import RadarProfileChart from '../components/RadarProfileChart';
@@ -383,6 +384,8 @@ export default function ProfilePage() {
       </SectionCard>
 
       <PsychMapCard profile={profile} />
+
+      <OptionalTestsCard profile={profile} />
 
       <ProfileInsightCard profile={profile} />
     </div>

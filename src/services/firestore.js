@@ -38,6 +38,8 @@ import {
   getTeamRole,
 } from '../utils/teamRoles';
 import { FUNCTIONAL_ROLE_KEYS, QUALIFICATION_KEYS } from '../utils/teamFunctions';
+import { OPTIONAL_TESTS, calculateOptionalTest } from '../data/optionalTests';
+import { PAIR_QUESTION_KEYS } from '../utils/pairPulse';
 import {
   ITERATION_STATUSES,
   TASK_PRIORITY_KEYS,
@@ -196,6 +198,7 @@ function buildMemberSnapshot(profile) {
     factorReliability: normalizedProfile.factorReliability,
     systemIndices: normalizedProfile.systemIndices,
     profileIntegrity: normalizedProfile.profileIntegrity,
+    ...(normalizedProfile.bigFive ? { bigFive: normalizedProfile.bigFive } : {}),
   };
 }
 
@@ -1509,10 +1512,53 @@ export async function acceptFriendRequest(friendshipId, profile) {
   });
 }
 
-/** Отклонить или отменить заявку, удалить из друзей. */
+/** Отклонить или отменить заявку, удалить из друзей (вместе с опросами пары). */
 export async function removeFriendship(friendshipId, userId) {
   assertCurrentUser(userId);
-  await deleteDoc(doc(db, 'friendships', friendshipId));
+
+  const friendshipRef = doc(db, 'friendships', friendshipId);
+  const pulses = await getDocs(collection(friendshipRef, 'pulses'));
+  const batch = writeBatch(db);
+
+  pulses.docs.forEach((item) => batch.delete(item.ref));
+  batch.delete(friendshipRef);
+  await batch.commit();
+}
+
+/** Опрос недели для пары: один раз в неделю, партнёр увидит ответ после своего. */
+export async function submitPairPulse(friendshipId, actorId, answers) {
+  assertCurrentUser(actorId);
+
+  const normalizedAnswers = Object.fromEntries(
+    PAIR_QUESTION_KEYS.map((key) => [key, normalizeRating(answers?.[key])]),
+  );
+
+  if (Object.values(normalizedAnswers).some((value) => value === null)) {
+    throw new Error('incomplete-survey');
+  }
+
+  const weekKey = getWeekKey();
+
+  await setDoc(doc(db, 'friendships', friendshipId, 'pulses', `${weekKey}_${actorId}`), {
+    userId: actorId,
+    weekKey,
+    answers: normalizedAnswers,
+    createdAt: nowIso(),
+  });
+}
+
+/** Сохраняет результат необязательного теста в личный профиль. */
+export async function saveOptionalTest(userId, testKey, answers) {
+  const test = OPTIONAL_TESTS[testKey];
+  const scores = test ? calculateOptionalTest(test, answers) : null;
+
+  if (!scores) {
+    throw new Error('incomplete-survey');
+  }
+
+  await saveProfile(userId, {
+    [testKey]: { scores, answers, completedAt: nowIso() },
+  });
 }
 
 /** Обновляет мой снапшот у друзей, если анкета или имя изменились. */

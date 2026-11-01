@@ -4,6 +4,7 @@ import {
   getFunctionFit,
   suggestFunctionAssignment,
 } from './teamFunctions';
+import { getGroupTraits } from './teamTraits';
 
 /**
  * Подбор команды: из выбранных кандидатов перебором ищутся составы,
@@ -13,7 +14,9 @@ import {
  * - «химия» — 70% средней совместимости пар + 30% самой слабой пары
  *   (одна конфликтная пара тянет вниз всю команду);
  * - роли — закрыты ли роли в работе и насколько люди подходят под свои
- *   (teamFunctions.js). Итог: 75% химии + 25% ролей.
+ *   (teamFunctions.js). Итог: 75% химии + 25% ролей;
+ * - черты по Большой пятёрке (teamTraits.js), если её прошли все в составе:
+ *   тогда 60% химии + 20% ролей + 20% черт. Веса — наш выбор, на данных не проверены.
  */
 
 export const GROUP_SIZE_OPTIONS = [2, 3, 4, 5, 6];
@@ -131,10 +134,16 @@ export function findBestGroups(candidates, { size, anchor = null }) {
     .slice(0, ROLE_RERANK_LIMIT)
     .map((group) => {
       const { roles, missingRoles, roleScore } = measureRoles(group.members);
+      const traits = getGroupTraits(group.members);
 
       return {
         members: group.members,
-        score: Math.round(group.chemistry * 0.75 + roleScore * 0.25),
+        score: Math.round(
+          traits
+            ? group.chemistry * 0.6 + roleScore * 0.2 + traits.score * 0.2
+            : group.chemistry * 0.75 + roleScore * 0.25,
+        ),
+        traits,
         averageCompatibility: Math.round(group.average),
         weakestPair: group.weakest,
         roles,
